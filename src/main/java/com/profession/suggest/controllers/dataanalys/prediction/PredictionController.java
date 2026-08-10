@@ -1,7 +1,8 @@
 package com.profession.suggest.controllers.dataanalys.prediction;
 
-import com.profession.suggest.database.entities.dataanalys.prediction.Prediction;
+import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.dataanalys.prediction.PredictionService;
+import com.profession.suggest.database.services.pupil.PupilService;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,10 +14,14 @@ import java.util.List;
 @RequestMapping("/api/predictions")
 public class PredictionController {
     private final PredictionService predictionService;
+    private final AccountService accountService;
 
-    public PredictionController(PredictionService predictionService) {
+    public PredictionController(PredictionService predictionService, AccountService accountService) {
         this.predictionService = predictionService;
+        this.accountService = accountService;
     }
+    //Accept predictions from service, DEPRECATED
+    /*
     @PostMapping("/create")
     public ResponseEntity<?> createPrediction(@RequestPart("prediction") PredictionDTO predictionDTO,
                                                           @RequestPart("file") MultipartFile file) {
@@ -27,10 +32,23 @@ public class PredictionController {
                     .body("Please check all required parameters, cant save prediction");
         }
     }
+    */
     @GetMapping("/pupil/{pupilId}")
     public ResponseEntity<List<PredictionDTO>> getPredictionsByPupilId(
             @PathVariable("pupilId") Long pupilId
     ) {
         return ResponseEntity.ok(predictionService.getPredictionsByPupilId(pupilId));
+    }
+    /**TODO
+     * - need to call python service (make request) then accept response and save it then send it*/
+    @PostMapping("/predict")
+    public ResponseEntity<?> predict(@RequestAttribute("accountId") Long accountId) {
+        try {
+            //that only after getting proper results
+            return ResponseEntity.ok(
+                predictionService.predictByAccount(accountService.getAccountById(accountId)));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
     }
 }
