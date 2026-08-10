@@ -1,5 +1,6 @@
 package com.profession.suggest.database.entities.professions;
 
+import com.profession.suggest.database.entities.dataanalys.prediction.Prediction;
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
 import com.profession.suggest.database.entities.dataanalys.vrtests.VRTest;
 import jakarta.persistence.*;
@@ -23,6 +24,8 @@ public class Profession {
     private List<Simulation> simulations;
     @OneToMany(mappedBy = "profession")
     private List<VRTest> vrTests;
+    @OneToMany(mappedBy = "predictedProfession")
+    private List<Prediction> predictions;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profession_sphere_id")
     private ProfessionSphere professionSphere;

@@ -1,6 +1,7 @@
 package com.profession.suggest.database.entities.users.specialist;
 
 import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.dataanalys.prediction.Prediction;
 import com.profession.suggest.database.entities.dataanalys.psychtests.PsychTest;
 import com.profession.suggest.database.entities.gender.Gender;
 import com.profession.suggest.database.entities.professions.Profession;
@@ -48,6 +49,8 @@ public class Specialist implements User {
     private Gender gender;
     @OneToMany(mappedBy = "specialist", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PsychTest> psychTests;
+    @OneToMany(mappedBy = "nearestSpecialist")
+    private List<Prediction> predictions;
     @ManyToOne()
     @JoinColumn(name = "company_id")
     private Company company;
