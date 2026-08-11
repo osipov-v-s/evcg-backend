@@ -39,8 +39,6 @@ public class PredictionController {
     ) {
         return ResponseEntity.ok(predictionService.getPredictionsByPupilId(pupilId));
     }
-    /**TODO
-     * - need to call python service (make request) then accept response and save it then send it*/
     @PostMapping("/predict")
     public ResponseEntity<?> predict(@RequestAttribute("accountId") Long accountId) {
         try {
@@ -49,6 +47,14 @@ public class PredictionController {
                 predictionService.predictByAccount(accountService.getAccountById(accountId)));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+    @GetMapping("/latest")
+    public ResponseEntity<?> getLatestPrediction(@RequestAttribute("accountId") Long accountId) {
+        try {
+            return ResponseEntity.ok(predictionService.getLatestPredictionByAccountId(accountId));
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body("No prediction found");
         }
     }
 }

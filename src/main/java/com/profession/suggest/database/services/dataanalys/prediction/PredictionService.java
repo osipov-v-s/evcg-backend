@@ -82,6 +82,20 @@ public class PredictionService {
                 .map(mapper::toDTO)
                 .collect(Collectors.toList());
     }
+    public PredictionResponse getLatestPredictionByAccountId(Long accountId) {
+        Pupil pupil = pupilService.getPupilByAccountId(accountId);
+        Prediction prediction = repository.findTopByPupilIdOrderByCreatedAtDesc(pupil.getId())
+                .orElseThrow(() -> new RuntimeException("No prediction found"));
+        return PredictionResponse.builder()
+                .pupilId(pupil.getId())
+                .cluster(prediction.getCluster())
+                .predictedProfession(prediction.getPredictedProfession().getName())
+                .nearestSpecialistId(prediction.getNearestSpecialist().getId())
+                .distance(prediction.getDistance())
+                .confidenceCategory(prediction.getConfidenceCategory())
+                .createdAt(prediction.getCreatedAt())
+                .build();
+    }
     /**TODO
      * - think how to get all actual psychTest for pupil and send thins to the servie
      * - fix accepted data from service in format like there
@@ -133,14 +147,15 @@ public class PredictionService {
         //as default temp
         PredictionType predictionType = predictionTypeService.getByName(PredictionTypeEnum.CLUSTER);
 
-        Prediction prediction = new Prediction();
-        prediction.setPupil(pupil);
-        prediction.setPredictedProfession(profession);
-        prediction.setNearestSpecialist(specialist);
-        prediction.setConfidenceCategory(predictionResponse.getConfidenceCategory());
-        prediction.setDistance(predictionResponse.getDistance());
-        prediction.setCluster(predictionResponse.getCluster());
-        prediction.setPredictionType(predictionType);
+        Prediction prediction = Prediction.builder()
+                .pupil(pupil)
+                .predictedProfession(profession)
+                .nearestSpecialist(specialist)
+                .predictionType(predictionType)
+                .cluster(predictionResponse.getCluster())
+                .distance(predictionResponse.getDistance())
+                .confidenceCategory(predictionResponse.getConfidenceCategory())
+                .build();
         return repository.save(prediction);
     }
     public PredictionResponse predictByAccount(Account account) {
