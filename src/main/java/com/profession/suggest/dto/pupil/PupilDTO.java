@@ -16,34 +16,24 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class PupilDTO {
     private Long id;
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 50, message = "Name must be 2-50 characters")
+
     private String name;
-    @NotBlank(message = "Surname is required")
-    @Size(max = 50, message = "Surname cannot exceed 50 characters")
+
     private String surname;
 
-    @Size(max = 50, message = "Patronymic cannot exceed 50 characters")
     private String patronymic;
 
-    @Past(message = "Birthday must be in the past")
     private LocalDate birthday;
 
-    @Size(max = 100, message = "School name cannot exceed 100 characters")
     private String school;
 
-    @Size(max = 500, message = "Health condition notes are too long")
     private String healthCondition;
 
-    @Size(max = 50, message = "Nationality cannot exceed 50 characters")
     private String nationality;
 
-    @Size(max = 500, message = "Extra activities description is too long")
     private String extraActivities;
     private Integer classNumber;
-    @Size(max = 5, message = "Class label is too long")
     private String classLabel;
-    @NotNull(message = "Gender is required")
     private GenderEnum gender;
     private LocalDate createdAt;
 }

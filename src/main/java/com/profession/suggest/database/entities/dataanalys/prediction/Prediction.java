@@ -5,6 +5,7 @@ import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.entities.users.specialist.Specialist;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Prediction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

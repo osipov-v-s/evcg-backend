@@ -26,35 +26,25 @@ public class Pupil implements User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @NotBlank(message = "Surname is required")
-    @Size(min = 2, max = 50, message = "Surname must be between 2 and 50 characters")
     @Column(name = "surname", nullable = false, length = 50)
     private String surname;
 
-    @Size(max = 50, message = "Patronymic must not exceed 50 characters")
     @Column(name = "patronymic", length = 50, nullable = false)
     private String patronymic;
 
     @Column(name = "birthday")
     private LocalDate birthday;
 
-    @Size(max = 200, message = "School name must not exceed 200 characters")
     @Column(name = "school", length = 200)
     private String school;
 
-    @Size(max = 500, message = "Health condition must not exceed 500 characters")
     @Column(name = "health_condition", columnDefinition = "TEXT")
     private String healthCondition;
-
-    @Size(max = 50, message = "Nationality must not exceed 50 characters")
     @Column(name = "nationality", length = 50)
     private String nationality;
-    @Size(max = 1000, message = "Extra activities must not exceed 1000 characters")
     @Column(name = "extra_activities", columnDefinition = "TEXT")
     private String extraActivities;
     @Column(name = "class_number")
