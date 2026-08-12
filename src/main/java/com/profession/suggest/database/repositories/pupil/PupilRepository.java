@@ -5,6 +5,7 @@ import com.profession.suggest.dto.pupil.PupilResponseDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,7 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-public interface PupilRepository extends JpaRepository<Pupil, Long> {
+public interface PupilRepository extends JpaRepository<Pupil, Long>, JpaSpecificationExecutor<Pupil> {
     @Query("SELECT new com.profession.suggest.dto.pupil.PupilResponseDTO(" +
             "p.id, p.name, p.surname, p.patronymic, p.birthday, p.school, " +
             "p.healthCondition, p.nationality, p.extraActivities, p.classNumber, p.classLabel, g.name,  a.email, p.createdAt) " +
@@ -34,4 +35,8 @@ public interface PupilRepository extends JpaRepository<Pupil, Long> {
     Optional<Pupil> findByAccountEmail(String email);
     List<Pupil> findByAccountCreatedAtBetween(@Param("startDate") LocalDate startDate,
                                               @Param("endDate") LocalDate endDate);
+    List<Pupil> findByEducationalOrganizationIdAndAccountCreatedAtBetween(
+            Long schoolId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

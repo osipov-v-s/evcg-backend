@@ -54,6 +54,4 @@ public class Specialist implements User {
     @ManyToOne()
     @JoinColumn(name = "company_id")
     private Company company;
-    @OneToMany(mappedBy = "invitedBy")
-    private List<Invitation> sentInvitations;
 }

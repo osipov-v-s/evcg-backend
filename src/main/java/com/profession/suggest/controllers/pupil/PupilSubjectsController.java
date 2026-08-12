@@ -1,5 +1,7 @@
 package com.profession.suggest.controllers.pupil;
 
+import com.profession.suggest.configuration.security.annotation.HasRole;
+import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.services.pupil.PupilService;
 import com.profession.suggest.database.services.pupil.subject.PupilGradeService;
 import com.profession.suggest.database.services.pupil.subject.SubjectInfoService;
@@ -27,12 +29,14 @@ public class PupilSubjectsController {
     }
 
     @PostMapping("/add-subjects-info")
+    @HasRole(RoleEnum.PUPIL)
     public ResponseEntity<String> addSubjectsInfo(@RequestAttribute("accountId") Long accountId, @RequestBody List<PupilSubjectDTO> pupilSubjectDTOS) {
         pupilSubjectProfileService.addSubjectProfilesForPupil(pupilSubjectDTOS, pupilService.getPupilByAccountId(accountId));
         pupilGradeService.addGradesToPupil(accountId, pupilSubjectDTOS);
         return ResponseEntity.ok("Saved");
     }
     @GetMapping
+    @HasRole(RoleEnum.PUPIL)
     public ResponseEntity<List<PupilSubjectDTO>> getPupilSubjectInfo(@RequestAttribute("accountId") Long accountId) {
         return ResponseEntity.ok(subjectInfoService.getPupilSubjectsInfo(pupilService.getPupilByAccountId(accountId)));
     }

@@ -12,6 +12,5 @@ import java.util.Map;
 @NoArgsConstructor
 public class PredictionRequest {
     private Long pupilId;
-    private String fullName;
     private Map<String, PsychTestDTO> psychTests;
 }

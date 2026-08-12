@@ -1,6 +1,7 @@
 package com.profession.suggest.database.entities.auth;
 
 import com.profession.suggest.database.entities.auth.role.Role;
+import com.profession.suggest.database.entities.education.Curator;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.entities.users.specialist.Specialist;
 import jakarta.persistence.*;
@@ -14,8 +15,8 @@ import java.util.Set;
 @Table(name = "account")
 @Getter
 @Setter
-@ToString(exclude = {"pupil", "roles"})
-@EqualsAndHashCode(exclude = {"pupil", "roles"})
+@ToString(exclude = {"pupil", "specialist", "curator", "roles"})
+@EqualsAndHashCode(exclude = {"pupil", "specialist", "curator", "roles"})
 @NoArgsConstructor
 @AllArgsConstructor
 public class Account {
@@ -37,6 +38,8 @@ public class Account {
     private Pupil pupil;
     @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
     private Specialist specialist;
+    @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
+    private Curator curator;
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     @JoinTable(
             name = "account_roles",

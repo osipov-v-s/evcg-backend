@@ -1,5 +1,6 @@
 package com.profession.suggest.controllers.auth;
 
+import com.profession.suggest.configuration.security.annotation.HasRole;
 import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.pupil.PupilService;
@@ -8,7 +9,6 @@ import com.profession.suggest.dto.auth.AccountDTO;
 import com.profession.suggest.dto.auth.AccountRegisterRequestDTO;
 import com.profession.suggest.dto.auth.RoleDTO;
 import com.profession.suggest.dto.pupil.PupilDTO;
-import com.profession.suggest.services.jwt.JWTService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
@@ -27,12 +27,10 @@ import java.util.stream.Collectors;
 public class AuthController {
     private final PupilService pupilService;
     private final AccountService accountService;
-    private final JWTService jwtService;
 
-    public AuthController(PupilService pupilService, AccountService accountService, JWTService jwtService) {
+    public AuthController(PupilService pupilService, AccountService accountService) {
         this.pupilService = pupilService;
         this.accountService = accountService;
-        this.jwtService = jwtService;
     }
     //Legacy, this is PupilController method
     @PostMapping("/auto-register")
@@ -41,6 +39,7 @@ public class AuthController {
     }
     //Legacy, this is PupilController method and PupilApiRegisterDTO best name as in SpecialistController
     @PostMapping("/auto-register-all")
+    @HasRole(RoleEnum.ADMIN)
     public ResponseEntity<String> autoRegisterAll(@RequestBody List<AccountApiRegisterDTO> accountApiRegisterDTOList) {
         pupilService.createAllWithAccounts(accountApiRegisterDTOList);
         return ResponseEntity.ok("OK");
@@ -69,8 +68,8 @@ public class AuthController {
     @GetMapping("/account-roles")
     public ResponseEntity<List<RoleDTO>> getAccountRoles(@RequestAttribute("accountId") Long accountId) throws AccountNotFoundException {
         try {
-            return ResponseEntity.ok(accountService.getRolesByAccount(accountId).stream()
-                    .map((r) -> new RoleDTO(r.getName()))
+            return ResponseEntity.ok(accountService.getActiveRoleNamesByAccount(accountId).stream()
+                    .map(RoleDTO::new)
                     .collect(Collectors.toList()));
         } catch (AccountNotFoundException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -101,13 +100,4 @@ public class AuthController {
             return ResponseEntity.status(500).build();
         }
     }
-    @PostMapping("/protected-test")
-    public ResponseEntity<String> testProtectedRoute(){
-        return ResponseEntity.ok("This is protected route for testing jwt");
-    }
-    @GetMapping("/get-test-token")
-    public ResponseEntity<String> getTestToken() {
-        return ResponseEntity.ok(jwtService.generateToken("Hello user"));
-    }
-
 }

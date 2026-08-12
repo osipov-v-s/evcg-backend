@@ -37,13 +37,19 @@ public class PupilMapper {
         dto.setSurname(pupil.getSurname());
         dto.setPatronymic(pupil.getPatronymic());
         dto.setBirthday(pupil.getBirthday());
-        dto.setSchool(pupil.getSchool());
+        if (pupil.getEducationalOrganization() != null) {
+            dto.setSchoolId(pupil.getEducationalOrganization().getId());
+            dto.setSchool(pupil.getEducationalOrganization().getName());
+        } else {
+            dto.setSchool(pupil.getSchool());
+        }
         dto.setHealthCondition(pupil.getHealthCondition());
         dto.setNationality(pupil.getNationality());
         dto.setExtraActivities(pupil.getExtraActivities());
         dto.setClassNumber(pupil.getClassNumber());
         dto.setClassLabel(pupil.getClassLabel());
-        dto.setGender(pupil.getGender().getName());
+        if (pupil.getGender() != null)
+            dto.setGender(pupil.getGender().getName());
         dto.setCreatedAt(pupil.getCreatedAt());
         return dto;
     }
@@ -59,6 +65,12 @@ public class PupilMapper {
         Optional.ofNullable(dto.getClassNumber()).ifPresent(pupil::setClassNumber);
         Optional.ofNullable(dto.getClassLabel()).ifPresent(pupil::setClassLabel);
         return pupil;
+    }
+    public PupilResponseDTO toResponseDTO(Pupil pupil) {
+        PupilResponseDTO response = new PupilResponseDTO();
+        response.setPupilDTO(toDTO(pupil));
+        response.setEmail(pupil.getAccount() != null ? pupil.getAccount().getEmail() : null);
+        return response;
     }
     public PupilCompleteDTO toCompleteDTO(Pupil pupil) {
         PupilCompleteDTO dto = new PupilCompleteDTO();

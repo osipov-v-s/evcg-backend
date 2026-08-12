@@ -27,6 +27,8 @@ public class PupilDTO {
 
     private String school;
 
+    private Long schoolId;
+
     private String healthCondition;
 
     private String nationality;

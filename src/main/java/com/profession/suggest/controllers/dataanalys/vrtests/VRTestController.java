@@ -1,8 +1,12 @@
 package com.profession.suggest.controllers.dataanalys.vrtests;
 
+import com.profession.suggest.configuration.security.annotation.HasRole;
 import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.dataanalys.vrtests.VRTestService;
+import com.profession.suggest.database.services.dataanalys.vrtests.VRTestTypeService;
+import com.profession.suggest.dto.dataanalys.TestTypeStatusDTO;
 import com.profession.suggest.dto.dataanalys.vrtests.VRTestDTO;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +24,9 @@ import java.util.List;
 public class VRTestController {
     private final VRTestService vrTestService;
     private final AccountService accountService;
+    private final VRTestTypeService vrTestTypeService;
 
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @PostMapping
     public ResponseEntity<?> createTest(@RequestBody VRTestDTO dto,
                                         @RequestAttribute("accountId") Long accountId){
@@ -34,6 +40,7 @@ public class VRTestController {
             log.error("Validation error: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());}
     }
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @GetMapping("/my-tests")
     public ResponseEntity<?> getAccountTests(@RequestAttribute("accountId") Long accountId){
         try {
@@ -45,12 +52,14 @@ public class VRTestController {
                     .body("Failed to fetch tests: " + e.getMessage());
         }
     }
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @GetMapping("/my-tests/profession/{professionId}")
     public ResponseEntity<?> getAccountTestsByProfession(
             @RequestAttribute("accountId") Long accountId,
             @PathVariable Long professionId) throws AccountNotFoundException {
         return ResponseEntity.ok(vrTestService.getTestsByAccountIdAndProfessionId(accountId, professionId));
     }
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @DeleteMapping("/my-tests/profession/{professionId}")
     public ResponseEntity<?> resetMyTestsByProfession(
             @RequestAttribute("accountId") Long accountId,
@@ -65,6 +74,19 @@ public class VRTestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to reset tests: " + e.getMessage());
         }
+    }
+
+    @HasRole(RoleEnum.ADMIN)
+    @GetMapping("/types")
+    public ResponseEntity<List<TestTypeStatusDTO>> getTestTypes() {
+        return ResponseEntity.ok(vrTestTypeService.getTypes());
+    }
+
+    @HasRole(RoleEnum.ADMIN)
+    @PatchMapping("/types/{typeId}/active")
+    public ResponseEntity<TestTypeStatusDTO> setTestTypeActive(@PathVariable Long typeId,
+                                                               @RequestParam boolean active) {
+        return ResponseEntity.ok(vrTestTypeService.setActive(typeId, active));
     }
 
 

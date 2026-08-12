@@ -18,6 +18,8 @@ public class PsychTestType {
     private Long id;
     @Column(name = "name", unique = true, nullable = false)
     private String name;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
     @OneToMany(mappedBy = "psychTestType", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PsychTest> psychTests;
 }

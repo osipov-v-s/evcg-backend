@@ -42,6 +42,7 @@ public class RoleAspect {
             Long accountId = Long.valueOf(jwtService.extractSubject(jwtToken));
             Set<RoleEnum> accountRoleNames = accountService.getRolesByAccount(accountId).stream()
                     .map(Role::getName)
+                    .filter(RoleEnum::isActive)
                     .collect(Collectors.toSet());
             boolean hasRequiredRole = Arrays.stream(hasRole.value())
                     .anyMatch(accountRoleNames::contains);

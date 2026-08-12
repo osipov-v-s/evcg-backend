@@ -1,6 +1,10 @@
 package com.profession.suggest.controllers.dataanalys.simulation;
 
+import com.profession.suggest.configuration.security.annotation.HasRole;
+import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
+import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.dataanalys.simulation.ScenarioService;
 import com.profession.suggest.database.services.dataanalys.simulation.SimulationDataSourceService;
 import com.profession.suggest.database.services.dataanalys.simulation.SimulationService;
@@ -27,20 +31,27 @@ public class SimulationController {
     private final ScenarioService scenarioService;
     private final SimulationDataSourceService simulationDataSourceService;
     private final SimulationMapper simulationMapper;
+    private final AccountService accountService;
 
-    public SimulationController(SimulationService simulationService, SimulationTypeService simulationTypeService, ScenarioService scenarioService, SimulationDataSourceService simulationDataSourceService, SimulationMapper simulationMapper) {
+    public SimulationController(SimulationService simulationService, SimulationTypeService simulationTypeService, ScenarioService scenarioService, SimulationDataSourceService simulationDataSourceService, SimulationMapper simulationMapper, AccountService accountService) {
         this.simulationService = simulationService;
         this.simulationTypeService = simulationTypeService;
         this.scenarioService = scenarioService;
         this.simulationDataSourceService = simulationDataSourceService;
         this.simulationMapper = simulationMapper;
+        this.accountService = accountService;
     }
+    @HasRole({RoleEnum.PUPIL, RoleEnum.ADMIN})
     @PostMapping("/create")
-    public ResponseEntity<SimulationDTO> createSimulation(@RequestPart("metadata") SimulationDTO simulationDTO, @RequestPart("file") MultipartFile file) {
+    public ResponseEntity<SimulationDTO> createSimulation(@RequestPart("metadata") SimulationDTO simulationDTO,
+                                                           @RequestPart("file") MultipartFile file,
+                                                           @RequestAttribute("accountId") Long accountId) throws Exception {
+        Account requester = accountService.getAccountById(accountId);
         return ResponseEntity.ok(simulationMapper
                 .toDTO(simulationService
-                        .createSimulation(simulationDTO, file), simulationDTO.getEmail()));
+                        .createSimulation(simulationDTO, file, requester), simulationDTO.getEmail()));
     }
+    @HasRole(RoleEnum.ADMIN)
     @GetMapping
     public ResponseEntity<Page<SimulationResponseDTO>> getSimulations(@RequestParam(required = false) String email,
                                                                       @RequestParam(required = false) LocalDateTime startSimulation,
@@ -61,24 +72,29 @@ public class SimulationController {
                 simulations.map(s -> simulationMapper.toResponseDTO(
                         s, s.getPupil().getAccount() != null ? s.getPupil().getAccount().getEmail() : null)));
     }
+    @HasRole(RoleEnum.ADMIN)
     @PatchMapping("/{simulationId}/description")
     public ResponseEntity<SimulationDTO> updateDescription(@PathVariable("simulationId") Long simulationId,
                                                @RequestBody String description) {
         ;
         return ResponseEntity.ok(simulationService.updateDescriptionById(simulationId, description));
     }
+    @HasRole({RoleEnum.ADMIN, RoleEnum.PUPIL, RoleEnum.SPECIALIST, RoleEnum.CURATOR})
     @GetMapping("/types")
     public ResponseEntity<List<SimulationTypeDTO>> getSimulationTypes() {
         return ResponseEntity.ok(simulationTypeService.getSimulationTypes());
     }
+    @HasRole(RoleEnum.ADMIN)
     @PostMapping("/types")
     public ResponseEntity<SimulationTypeDTO> createSimulationType(@RequestBody SimulationTypeDTO simulationTypeDTO) {
         return ResponseEntity.ok(simulationTypeService.createSimulation(simulationTypeDTO));
     }
+    @HasRole({RoleEnum.ADMIN, RoleEnum.PUPIL, RoleEnum.SPECIALIST, RoleEnum.CURATOR})
     @GetMapping("/scenarios")
     public ResponseEntity<List<ScenarioDTO>> getScenario() {
         return ResponseEntity.ok(scenarioService.getAllScenarios());
     }
+    @HasRole({RoleEnum.ADMIN, RoleEnum.PUPIL, RoleEnum.SPECIALIST, RoleEnum.CURATOR})
     @GetMapping("/simulation-data-sources")
     public ResponseEntity<List<SimulationDataSourceDTO>> getSimulationDataSources() {
         return ResponseEntity.ok(simulationDataSourceService.getSimulationDataSources());

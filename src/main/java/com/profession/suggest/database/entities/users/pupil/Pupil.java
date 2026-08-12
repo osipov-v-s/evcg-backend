@@ -1,6 +1,7 @@
 package com.profession.suggest.database.entities.users.pupil;
 
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
+import com.profession.suggest.database.entities.education.School;
 import com.profession.suggest.database.entities.gender.Gender;
 import com.profession.suggest.database.entities.auth.Account;
 import com.profession.suggest.database.entities.dataanalys.psychtests.PsychTest;
@@ -18,8 +19,8 @@ import java.util.List;
 @Table(name = "pupil")
 @Getter
 @Setter
-@ToString(exclude = {"account", "gender"})
-@EqualsAndHashCode(exclude = {"account", "gender"})
+@ToString(exclude = {"account", "gender", "educationalOrganization", "psychTests", "simulations", "pupilGrades"})
+@EqualsAndHashCode(exclude = {"account", "gender", "educationalOrganization", "psychTests", "simulations", "pupilGrades"})
 @NoArgsConstructor
 @AllArgsConstructor
 public class Pupil implements User {
@@ -32,7 +33,7 @@ public class Pupil implements User {
     @Column(name = "surname", nullable = false, length = 50)
     private String surname;
 
-    @Column(name = "patronymic", length = 50, nullable = false)
+    @Column(name = "patronymic", length = 50)
     private String patronymic;
 
     @Column(name = "birthday")
@@ -40,6 +41,14 @@ public class Pupil implements User {
 
     @Column(name = "school", length = 200)
     private String school;
+
+    /**
+     * Structured educational-organization link. The legacy text column above
+     * remains during migration so existing profiles are not lost.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id")
+    private School educationalOrganization;
 
     @Column(name = "health_condition", columnDefinition = "TEXT")
     private String healthCondition;

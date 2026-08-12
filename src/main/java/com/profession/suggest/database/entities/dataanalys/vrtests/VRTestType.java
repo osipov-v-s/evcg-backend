@@ -15,4 +15,6 @@ public class VRTestType {
     private Long id;
     @Column(name = "name", unique = true, nullable = false)
     private String name;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 }

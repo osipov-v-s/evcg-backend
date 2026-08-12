@@ -14,6 +14,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 @Service
 public class JWTService {
@@ -31,6 +32,13 @@ public class JWTService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", account.getEmail());
         claims.put("firstLogin", account.getFirstLogin());
+        List<String> activeRoles = account.getRoles().stream()
+                .map(role -> role.getName())
+                .filter(role -> role.isActive())
+                .map(Enum::name)
+                .sorted()
+                .toList();
+        claims.put("roles", activeRoles);
         return "Bearer " + createToken(claims, String.valueOf(account.getId()));
     }
     private String createToken(Map<String, Object> claims, String subject){

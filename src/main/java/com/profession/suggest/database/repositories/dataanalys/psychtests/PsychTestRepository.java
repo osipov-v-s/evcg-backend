@@ -32,6 +32,18 @@ public interface PsychTestRepository extends JpaRepository<PsychTest, Long> {
                                             @Param("endDate") LocalDateTime endDate);
 
     @Query("select distinct pt from PsychTest pt " +
+            "inner join fetch pt.pupil p " +
+            "left join fetch p.account a " +
+            "left join fetch a.roles " +
+            "left join fetch p.gender " +
+            "left join fetch p.educationalOrganization " +
+            "where p.educationalOrganization.id = :schoolId " +
+            "and pt.createdAt >= :startDate and pt.createdAt <= :endDate")
+    List<PsychTest> findByPupilSchoolAndDateRange(@Param("schoolId") Long schoolId,
+                                                   @Param("startDate") LocalDateTime startDate,
+                                                   @Param("endDate") LocalDateTime endDate);
+
+    @Query("select distinct pt from PsychTest pt " +
             "inner join pt.specialist s " +
             "where pt.createdAt >= :startDate and pt.createdAt <= :endDate")
     List<PsychTest> findBySpecialistAndDateRange(@Param("startDate") LocalDateTime startDate,

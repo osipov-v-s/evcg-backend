@@ -29,6 +29,10 @@ public class SpecialistMapper {
             dto.setProfession(specialist.getProfession().getName());
         if (specialist.getGender() != null)
             dto.setGender(specialist.getGender().getName());
+        if (specialist.getCompany() != null) {
+            dto.setCompanyId(specialist.getCompany().getId());
+            dto.setCompanyName(specialist.getCompany().getName());
+        }
         dto.setJobSatisfaction(specialist.getJobSatisfaction());
         dto.setExperience(specialist.getExperience());
         return dto;

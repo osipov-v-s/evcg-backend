@@ -1,5 +1,7 @@
 package com.profession.suggest.database.services.dataanalys.simulation;
 
+import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.entities.dataanalys.simulation.Scenario;
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
 import com.profession.suggest.database.entities.dataanalys.simulation.SimulationDataSource;
@@ -42,7 +44,7 @@ public class SimulationService {
     * (register account with default password and default pupil and continue)
     * */
     @Transactional
-    public Simulation createSimulation(SimulationDTO simulationDTO, MultipartFile file) {
+    public Simulation createSimulation(SimulationDTO simulationDTO, MultipartFile file, Account requester) {
         try {
 
             Simulation simulation = new Simulation();
@@ -50,9 +52,7 @@ public class SimulationService {
             Scenario scenario = scenarioService.getScenarioByName(simulationDTO.getScenario());
             SimulationDataSource simulationDataSource = simulationDataSourceService.getByName(simulationDTO.getSimulationDataSource());
             Profession profession = professionService.getProfessionByName(simulationDTO.getProfession());
-            Pupil pupil = pupilService
-                    .getPupilByAccountEmail(simulationDTO.getEmail())
-                    .orElse(pupilService.createWithDefaults(simulationDTO.getEmail()));
+            Pupil pupil = resolvePupil(simulationDTO, requester);
             //if there is no pupil found by account email,
             // that means need to create Account with email and Pupil
             simulation.setSimulationType(simulationType);
@@ -68,10 +68,34 @@ public class SimulationService {
         } catch (IOException e) {
             log.error("Error while saving simulation file for email {}", simulationDTO.getEmail() ,e);
             throw new RuntimeException("Failed to save a file", e);
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error occurred while creating simulation for email: {}", simulationDTO.getEmail() ,e);
             throw new RuntimeException("Failed to create simulation for email",  e);
         }
+    }
+
+    private Pupil resolvePupil(SimulationDTO simulationDTO, Account requester) throws Exception {
+        if (requester.getPupil() != null) {
+            String requesterEmail = requester.getEmail();
+            if (simulationDTO.getEmail() != null
+                    && !simulationDTO.getEmail().isBlank()
+                    && !requesterEmail.equalsIgnoreCase(simulationDTO.getEmail()))
+                throw new SecurityException("Simulation cannot be assigned to another pupil");
+            simulationDTO.setEmail(requesterEmail);
+            return requester.getPupil();
+        }
+
+        boolean isAdmin = requester.getRoles().stream()
+                .map(role -> role.getName())
+                .anyMatch(role -> role == RoleEnum.ADMIN);
+        if (!isAdmin)
+            throw new SecurityException("Only a pupil or administrator can upload simulation data");
+        if (simulationDTO.getEmail() == null || simulationDTO.getEmail().isBlank())
+            throw new IllegalArgumentException("email is required for administrator upload");
+        return pupilService.getPupilByAccountEmail(simulationDTO.getEmail())
+                .orElse(pupilService.createWithDefaults(simulationDTO.getEmail()));
     }
     public Page<Simulation> findByFilters(String email,
                                           LocalDateTime startSimulation, LocalDateTime endSimulation,

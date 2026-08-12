@@ -8,7 +8,6 @@ import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.entities.users.specialist.Specialist;
 import com.profession.suggest.database.repositories.dataanalys.prediction.PredictionRepository;
-import com.profession.suggest.database.repositories.dataanalys.prediction.PredictionTypeRepository;
 import com.profession.suggest.database.services.dataanalys.psychtests.PsychTestService;
 import com.profession.suggest.database.services.profession.ProfessionService;
 import com.profession.suggest.database.services.pupil.PupilService;
@@ -17,25 +16,30 @@ import com.profession.suggest.dto.dataanalys.prediction.PredictionDTO;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionMapper;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionRequest;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionResponse;
-import com.profession.suggest.dto.dataanalys.psychtests.PsychTestDTO;
-import com.profession.suggest.services.files.FileStorageService;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.AllArgsConstructor;
+import com.profession.suggest.exceptions.PredictionIntegrationException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-
-import org.springframework.http.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PredictionService {
     private final PredictionRepository repository;
     private final PredictionMapper mapper;
@@ -44,50 +48,136 @@ public class PredictionService {
     private final PsychTestService psychTestService;
     private final ProfessionService professionService;
     private final SpecialistService specialistService;
-    private final FileStorageService fileStorageService;
     private final RestTemplate restTemplate;
-    @Value("${prediction.service.url}")
+
+    @Value("${prediction.service.url:http://127.0.0.1:8000/predict}")
     private String predictUrl;
-    //Deprecated method for saving file + data (from service broadcast)
-    /** Deprecated
-    public PredictionDTO createPrediction(PredictionDTO dto, MultipartFile file) throws Exception {
-        if (dto == null)
-            throw new IllegalArgumentException("Prediction DTO cannot be null");
-        if (file == null || file.isEmpty())
-            throw new IllegalArgumentException("File cannot be null or empty");
-        if (dto.getPupilId() == null || dto.getPupilId() <= 0)
-            throw new IllegalArgumentException("Valid pupil ID is required");
-        if (dto.getPredictionType() == null)
-            throw new IllegalArgumentException("Prediction type is required");
-        if (file.getSize() > 10 * 1024 * 1024)
-            throw new IllegalArgumentException("File size more then 10MB");
 
-        PredictionType type = predictionTypeService.getByName(dto.getPredictionType());
-        Prediction prediction = mapper.fromDTO(dto, type);
-        Pupil pupil = pupilService.getPupilById(dto.getPupilId());
-
-        if (pupil == null) throw new EntityNotFoundException(
-                String.format("Pupil not found with id: %d", dto.getPupilId()));
-        if (type == null) throw new EntityNotFoundException(
-                String.format("Prediction type not found: %s", dto.getPredictionType()));
-
-        prediction.setFilePath(fileStorageService.saveFile(file, "predictions", true));
-        prediction.setPupil(pupil);
-        return mapper.toDTO(repository.save(prediction));
-    }
-     */
     public List<PredictionDTO> getPredictionsByPupilId(Long pupilId) {
-        List<Prediction> predictions = repository.findByPupilId(pupilId);
-        return predictions.stream()
+        return repository.findByPupilId(pupilId).stream()
                 .map(mapper::toDTO)
                 .collect(Collectors.toList());
     }
+
     public PredictionResponse getLatestPredictionByAccountId(Long accountId) {
         Pupil pupil = pupilService.getPupilByAccountId(accountId);
         Prediction prediction = repository.findTopByPupilIdOrderByCreatedAtDesc(pupil.getId())
                 .orElseThrow(() -> new RuntimeException("No prediction found"));
+        return toResponse(prediction);
+    }
+
+    public PredictionResponse predictByAccount(Account account) {
+        if (account == null || account.getPupil() == null) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_ACCOUNT_INVALID",
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Prediction is available only for a pupil account");
+        }
+
+        Pupil pupil = account.getPupil();
+        PredictionRequest request = new PredictionRequest(
+                pupil.getId(),
+                psychTestService.getAccountRecentTests(account));
+        PredictionResponse externalResponse = requestPrediction(request);
+        validateExternalResponse(externalResponse, pupil.getId());
+        Prediction saved = savePrediction(externalResponse, pupil);
+        return toResponse(saved);
+    }
+
+    private PredictionResponse requestPrediction(PredictionRequest request) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<PredictionRequest> requestEntity = new HttpEntity<>(request, headers);
+        log.info("Calling prediction service pupilId={}", request.getPupilId());
+        try {
+            ResponseEntity<PredictionResponse> response = restTemplate.exchange(
+                    predictUrl,
+                    HttpMethod.POST,
+                    requestEntity,
+                    PredictionResponse.class);
+            if (response.getBody() == null) {
+                throw invalidResponse("Prediction service returned an empty response", null);
+            }
+            return response.getBody();
+        } catch (PredictionIntegrationException exception) {
+            throw exception;
+        } catch (HttpClientErrorException exception) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_REQUEST_REJECTED",
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Available test results are not sufficient for prediction",
+                    exception);
+        } catch (HttpServerErrorException exception) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_SERVICE_ERROR",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Prediction service is temporarily unavailable",
+                    exception);
+        } catch (ResourceAccessException exception) {
+            if (isTimeout(exception)) {
+                throw new PredictionIntegrationException(
+                        "PREDICTION_TIMEOUT",
+                        HttpStatus.GATEWAY_TIMEOUT,
+                        "Prediction took too long. Please try again later",
+                        exception);
+            }
+            throw new PredictionIntegrationException(
+                    "PREDICTION_SERVICE_UNAVAILABLE",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Prediction service is temporarily unavailable",
+                    exception);
+        } catch (RestClientException exception) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_SERVICE_UNAVAILABLE",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Prediction service is temporarily unavailable",
+                    exception);
+        }
+    }
+
+    private void validateExternalResponse(PredictionResponse response, Long expectedPupilId) {
+        if (response == null
+                || response.getPupilId() != expectedPupilId
+                || response.getCluster() < 0
+                || response.getNearestSpecialistId() <= 0
+                || !Double.isFinite(response.getDistance())
+                || response.getDistance() < 0
+                || response.getPredictedProfession() == null
+                || response.getPredictedProfession().isBlank()
+                || response.getConfidenceCategory() == null
+                || response.getConfidenceCategory().isBlank()) {
+            throw invalidResponse("Prediction service returned an invalid response", null);
+        }
+    }
+
+    private Prediction savePrediction(PredictionResponse response, Pupil pupil) {
+        try {
+            Profession profession = professionService.getProfessionByName(response.getPredictedProfession());
+            Specialist specialist = specialistService.getSpecialistById(response.getNearestSpecialistId());
+            PredictionType predictionType = predictionTypeService.getByName(PredictionTypeEnum.CLUSTER);
+            if (profession == null || specialist == null || predictionType == null) {
+                throw invalidResponse("Prediction response references missing domain data", null);
+            }
+            Prediction prediction = Prediction.builder()
+                    .pupil(pupil)
+                    .predictedProfession(profession)
+                    .nearestSpecialist(specialist)
+                    .predictionType(predictionType)
+                    .cluster(response.getCluster())
+                    .distance(response.getDistance())
+                    .confidenceCategory(response.getConfidenceCategory())
+                    .build();
+            return repository.save(prediction);
+        } catch (PredictionIntegrationException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw invalidResponse("Prediction response references missing domain data", exception);
+        }
+    }
+
+    private PredictionResponse toResponse(Prediction prediction) {
         return PredictionResponse.builder()
-                .pupilId(pupil.getId())
+                .pupilId(prediction.getPupil().getId())
                 .cluster(prediction.getCluster())
                 .predictedProfession(prediction.getPredictedProfession().getName())
                 .nearestSpecialistId(prediction.getNearestSpecialist().getId())
@@ -96,72 +186,22 @@ public class PredictionService {
                 .createdAt(prediction.getCreatedAt())
                 .build();
     }
-    /**TODO
-     * - think how to get all actual psychTest for pupil and send thins to the servie
-     * - fix accepted data from service in format like there
-     * - 1. On react call prediciton/predict (via token)
-     * - 2. Find by token pupil and send him in this method +
-     * - 3. Make here request to python service and wait for PredictionResponse (send pupil with actual psychTests) +
-     * - 4. Save result somewhere (think where to save it current prediction little bit not fit for fields may be add new fields)
-     * - 5. After result is revieced and saved send it back to the user (after some delay on react he sees PredicitonResponse data but from db)
-     * */
-    private PredictionResponse getPredictionByPupilAccount(Account account) {
-        PredictionRequest predictionRequest = new PredictionRequest();
-        predictionRequest.setPsychTests(psychTestService.getAccountRecentTests(account));
-        predictionRequest.setFullName(account.getPupil().getFullName());
-        predictionRequest.setPupilId(account.getPupil().getId());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<PredictionRequest> requestEntity = new HttpEntity<>(predictionRequest, headers);
 
-        try {
-            ResponseEntity<PredictionResponse> response = restTemplate.exchange(
-                    predictUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    PredictionResponse.class
-            );
-
-            return response.getBody();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to call prediction service at: " + predictUrl, e);
-        }
-    }
-    private Prediction createPrediction(PredictionResponse predictionResponse) {
-        Pupil pupil = pupilService.getPupilById(predictionResponse.getPupilId());
-        if (pupil == null) {
-            throw new RuntimeException("Pupil not found with id: " + predictionResponse.getPupilId());
-        }
-
-        Profession profession = professionService.getProfessionByName(
-                predictionResponse.getPredictedProfession());
-        if (profession == null) {
-            throw new RuntimeException("Profession not found: " + predictionResponse.getPredictedProfession());
-        }
-
-        Specialist specialist = specialistService.getSpecialistById(
-                predictionResponse.getNearestSpecialistId());
-        if (specialist == null) {
-            throw new RuntimeException("Specialist not found with id: " + predictionResponse.getNearestSpecialistId());
-        }
-        //as default temp
-        PredictionType predictionType = predictionTypeService.getByName(PredictionTypeEnum.CLUSTER);
-
-        Prediction prediction = Prediction.builder()
-                .pupil(pupil)
-                .predictedProfession(profession)
-                .nearestSpecialist(specialist)
-                .predictionType(predictionType)
-                .cluster(predictionResponse.getCluster())
-                .distance(predictionResponse.getDistance())
-                .confidenceCategory(predictionResponse.getConfidenceCategory())
-                .build();
-        return repository.save(prediction);
-    }
-    public PredictionResponse predictByAccount(Account account) {
-        PredictionResponse response = getPredictionByPupilAccount(account);
-        createPrediction(response);
-        return response;
+    private PredictionIntegrationException invalidResponse(String logMessage, Throwable cause) {
+        log.warn(logMessage, cause);
+        return new PredictionIntegrationException(
+                "PREDICTION_INVALID_RESPONSE",
+                HttpStatus.BAD_GATEWAY,
+                "Prediction service returned an invalid response",
+                cause);
     }
 
+    private boolean isTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
 }

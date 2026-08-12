@@ -46,6 +46,8 @@ public class AccountService {
             throw new AccountNotFoundException("Email or password incorrect");
         if (!passwordEncoder.matches(accountDTO.getPassword(), account.getPassword()))
             throw new AccountNotFoundException("Email or password incorrect");
+        if (account.getRoles().stream().map(Role::getName).noneMatch(RoleEnum::isActive))
+            throw new AccountNotFoundException("Account is not active in this product");
         String token = jwtService.generateTokenWithAccountInfo(account);
         if (account.getFirstLogin()) account.setFirstLogin(false);
         return token;
@@ -69,9 +71,15 @@ public class AccountService {
         Set<Role> accountRoles = new HashSet<>();
         for (RoleEnum roleName : roles) {
             if (roleName == null) continue;
+            if (!roleName.isActive())
+                throw new BadRequestException("Role is not active in this product: " + roleName);
             Role role = roleService.findByName(roleName);
+            if (role == null)
+                throw new IllegalStateException("Role is not configured: " + roleName);
             accountRoles.add(role);
         }
+        if (accountRoles.isEmpty())
+            throw new BadRequestException("At least one active role is required");
         account.setRoles(accountRoles);
 
         return repository.save(account);
@@ -104,8 +112,16 @@ public class AccountService {
         Account account = getAccountById((accountId));
         return account.getRoles();
     }
-    //good for getting all HR's accounts and etc
+    public Set<RoleEnum> getActiveRoleNamesByAccount(Long accountId) throws AccountNotFoundException {
+        return getRolesByAccount(accountId).stream()
+                .map(Role::getName)
+                .filter(RoleEnum::isActive)
+                .collect(Collectors.toSet());
+    }
+
     public Set<Account> getAccountsByRole(RoleEnum roleName) {
+        if (roleName == null || !roleName.isActive())
+            throw new IllegalArgumentException("Inactive role cannot be queried");
         Role role = roleService.findByName(roleName);
         return role.getAccounts();
     }

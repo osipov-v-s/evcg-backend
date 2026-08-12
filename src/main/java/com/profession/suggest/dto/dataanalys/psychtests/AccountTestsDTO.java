@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -19,6 +20,13 @@ public class AccountTestsDTO {
     private String name;
     private String surname;
     private String patronymic;
+    private String school;
+    private Integer classNumber;
+    private String classLabel;
+    private String gender;
+    private LocalDate birthday;
+    private String profession;
+    private String company;
     private Set<RoleEnum> roles;
     private List<PsychTestDTO> psychTests;
     public AccountTestsDTO(Long accountId, String email, String fullName,

@@ -21,4 +21,6 @@ public class SpecialistDTO {
     private String jobSatisfaction;
     private String profession;
     private GenderEnum gender;
+    private Long companyId;
+    private String companyName;
 }

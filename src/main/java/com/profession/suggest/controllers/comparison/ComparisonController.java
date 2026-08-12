@@ -39,6 +39,7 @@ public class ComparisonController {
      * Client gets the most recent active collection to start the test
      * GET /api/comparison/collections/active
      */
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @GetMapping("/collections/active")
     public ResponseEntity<?> getActiveCollection() {
         try {
@@ -57,6 +58,7 @@ public class ComparisonController {
      * Client submits completed test session
      * POST /api/comparison/sessions
      */
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @PostMapping("/sessions")
     public ResponseEntity<?> submitSession(
             @RequestAttribute("accountId") Long accountId,
@@ -82,6 +84,7 @@ public class ComparisonController {
      * Client gets their sessions (paginated)
      * GET /api/comparison/sessions
      */
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @GetMapping("/sessions")
     public ResponseEntity<?> getMySessions(
             @RequestAttribute("accountId") Long accountId,
@@ -100,6 +103,7 @@ public class ComparisonController {
      * Client gets a specific session by ID
      * GET /api/comparison/sessions/{sessionId}
      */
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @GetMapping("/sessions/{sessionId}")
     public ResponseEntity<?> getSession(
             @RequestAttribute("accountId") Long accountId,
@@ -124,6 +128,7 @@ public class ComparisonController {
      * Client deletes their session
      * DELETE /api/comparison/sessions/{sessionId}
      */
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @DeleteMapping("/sessions/{sessionId}")
     public ResponseEntity<?> deleteSession(
             @RequestAttribute("accountId") Long accountId,

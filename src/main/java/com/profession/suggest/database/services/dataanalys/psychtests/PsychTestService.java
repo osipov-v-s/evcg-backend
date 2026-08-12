@@ -90,6 +90,16 @@ public class PsychTestService {
             psychTests = repository.findBySpecialistAndDateRange(startDate, endDate);
         else
             psychTests = repository.findByDateRange(startDate, endDate);
+        return mapTests(psychTests);
+    }
+
+    public List<AccountTestsDTO> getCompletedPupilTestsBySchoolAndDateRange(Long schoolId,
+                                                                             LocalDateTime startDate,
+                                                                             LocalDateTime endDate) {
+        return mapTests(repository.findByPupilSchoolAndDateRange(schoolId, startDate, endDate));
+    }
+
+    private List<AccountTestsDTO> mapTests(List<PsychTest> psychTests) {
         Map<Long, AccountTestsDTO> accountMap = new LinkedHashMap<>();
         for (PsychTest test: psychTests) {
             User user = test.getPupil() != null ? test.getPupil() : test.getSpecialist();
@@ -107,6 +117,22 @@ public class PsychTestService {
                         dto.setFullName(user.getFullName());
                         dto.setRoles(user.getAccount().getRoles().stream().map(Role::getName).collect(Collectors.toSet()));
                         dto.setPsychTests(new ArrayList<>());
+                        if (user instanceof Pupil pupil) {
+                            dto.setSchool(pupil.getEducationalOrganization() != null
+                                    ? pupil.getEducationalOrganization().getName()
+                                    : pupil.getSchool());
+                            dto.setClassNumber(pupil.getClassNumber());
+                            dto.setClassLabel(pupil.getClassLabel());
+                            dto.setGender(pupil.getGender() != null ? pupil.getGender().getName().name() : null);
+                            dto.setBirthday(pupil.getBirthday());
+                        } else if (user instanceof Specialist specialist) {
+                            dto.setProfession(specialist.getProfession() != null
+                                    ? specialist.getProfession().getName()
+                                    : null);
+                            dto.setCompany(specialist.getCompany() != null
+                                    ? specialist.getCompany().getName()
+                                    : null);
+                        }
                         return dto;
                     });
             accountDTO.getPsychTests().add(mapper.toDTO(test));

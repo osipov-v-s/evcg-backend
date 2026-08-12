@@ -40,3 +40,6 @@ application.properties
 application-*.properties
 enviroment.properties
 .env
+
+# Generated from a real database and may contain personal data.
+/database/career_guidance_ready.sql
