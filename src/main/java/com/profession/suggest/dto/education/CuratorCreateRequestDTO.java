@@ -24,6 +24,5 @@ public class CuratorCreateRequestDTO {
 
     private String patronymic;
 
-    @NotNull
     private Long schoolId;
 }
