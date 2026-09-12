@@ -12,5 +12,6 @@ import java.util.Map;
 @NoArgsConstructor
 public class PredictionRequest {
     private Long pupilId;
+    private Integer age;
     private Map<String, PsychTestDTO> psychTests;
 }
