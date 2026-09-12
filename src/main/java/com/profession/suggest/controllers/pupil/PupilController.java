@@ -4,6 +4,7 @@ import com.profession.suggest.configuration.security.annotation.HasRole;
 import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.entities.gender.GenderEnum;
 import com.profession.suggest.database.services.auth.AccountService;
+import com.profession.suggest.database.services.dataanalys.prediction.ClusterPredictionService;
 import com.profession.suggest.database.services.dataanalys.prediction.PredictionService;
 import com.profession.suggest.database.services.pupil.PupilService;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionDTO;
@@ -34,15 +35,17 @@ public class PupilController {
     private final PupilService pupilService;
     private final AccountService accountService;
     private final PredictionService predictionService;
+    private final ClusterPredictionService clusterPredictionService;//TODO check seems like redurant
 
     private static final List<String> ALLOWED_SORT_FIELDS = List.of(
             "id", "name", "surname", "createdAt", "classNumber"
     );
 
-    public PupilController(PupilService pupilService, AccountService accountService, PredictionService predictionService) {
+    public PupilController(PupilService pupilService, AccountService accountService, PredictionService predictionService, ClusterPredictionService clusterPredictionService) {
         this.pupilService = pupilService;
         this.accountService = accountService;
         this.predictionService = predictionService;
+        this.clusterPredictionService = clusterPredictionService;
     }
 
     @HasRole({RoleEnum.ADMIN, RoleEnum.CURATOR})
@@ -109,7 +112,7 @@ public class PupilController {
     @GetMapping("/pupil/predictions")
     public ResponseEntity<List<PredictionDTO>> getPupilPredictions(@RequestAttribute("accountId") Long accountId) {
         return ResponseEntity.ok(
-                predictionService.getPredictionsByPupilId(
+                clusterPredictionService.getByPupilId(
                         pupilService.getPupilByAccountId(accountId).getId()));
 
     }
