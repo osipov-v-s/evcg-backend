@@ -1,9 +1,11 @@
 package com.profession.suggest.database.services.dataanalys.prediction;
 
+import com.profession.suggest.configuration.properties.PredictionProperties;
 import com.profession.suggest.database.entities.auth.Account;
 import com.profession.suggest.database.entities.dataanalys.prediction.Prediction;
 import com.profession.suggest.database.entities.dataanalys.prediction.PredictionType;
 import com.profession.suggest.database.entities.dataanalys.prediction.PredictionTypeEnum;
+import com.profession.suggest.database.entities.dataanalys.prediction.math.MathPrediction;
 import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.entities.users.specialist.Specialist;
@@ -34,39 +36,78 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.SocketTimeoutException;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import com.profession.suggest.configuration.properties.PredictionProperties;
+import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.dataanalys.prediction.PredictionTypeEnum;
+import com.profession.suggest.database.entities.users.pupil.Pupil;
+import com.profession.suggest.dto.dataanalys.prediction.PredictionRequest;
+import com.profession.suggest.exceptions.PredictionIntegrationException;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+
+import java.net.SocketTimeoutException;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PredictionService {
-    private final PredictionRepository repository;
-    private final PredictionMapper mapper;
-    private final PredictionTypeService predictionTypeService;
-    private final PupilService pupilService;
-    private final PsychTestService psychTestService;
-    private final ProfessionService professionService;
-    private final SpecialistService specialistService;
-    private final RestTemplate restTemplate;
 
-    @Value("${prediction.service.url:http://127.0.0.1:8000/predict}")
-    private String predictUrl;
+    private final PredictionProperties predictionProperties;
+    private final List<PredictionStrategy<?, ?>> strategies;
 
-    public List<PredictionDTO> getPredictionsByPupilId(Long pupilId) {
-        return repository.findByPupilId(pupilId).stream()
-                .map(mapper::toDTO)
-                .collect(Collectors.toList());
+    private Map<PredictionTypeEnum, PredictionStrategy<?, ?>> strategyMap;
+
+    @PostConstruct
+    void init() {
+        strategyMap = strategies.stream()
+                .collect(Collectors.toMap(PredictionStrategy::type, Function.identity()));
+        log.info("Registered prediction strategies: {}", strategyMap.keySet());
+
+        Set<PredictionTypeEnum> missing = EnumSet.allOf(PredictionTypeEnum.class);
+        missing.removeAll(strategyMap.keySet());
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Missing PredictionStrategy for: " + missing);
+        }
     }
 
-    public PredictionResponse getLatestPredictionByAccountId(Long accountId) {
-        Pupil pupil = pupilService.getPupilByAccountId(accountId);
-        Prediction prediction = repository.findTopByPupilIdOrderByCreatedAtDesc(pupil.getId())
-                .orElseThrow(() -> new RuntimeException("No prediction found"));
-        return toResponse(prediction);
+    /** Legacy entry defaults to CLUSTER. */
+    public Prediction predictByAccount(Account account) {
+        return predictByAccount(account, PredictionTypeEnum.CLUSTER);
     }
 
-    public PredictionResponse predictByAccount(Account account) {
+    /** Typed convenience overloads, so callers don't deal with generics. */
+    public Prediction predictCluster(Account account) {
+        return predictByAccount(account, PredictionTypeEnum.CLUSTER);
+    }
+
+    public MathPrediction predictMath(Account account) {
+        return predictByAccount(account, PredictionTypeEnum.MATH);
+    }
+
+    /**
+     * Generic dispatch returns whatever the strategy persisted.
+     * Callers usually prefer the typed overloads above.
+     */
+    @SuppressWarnings("unchecked")
+    public <R, P> P predictByAccount(Account account, PredictionTypeEnum type) {
         if (account == null || account.getPupil() == null) {
             throw new PredictionIntegrationException(
                     "PREDICTION_ACCOUNT_INVALID",
@@ -74,133 +115,78 @@ public class PredictionService {
                     "Prediction is available only for a pupil account");
         }
 
+        String url = predictionProperties.getUrls().get(type);
+        if (url == null || url.isBlank()) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_TYPE_UNSUPPORTED",
+                    HttpStatus.BAD_REQUEST,
+                    "No URL configured for prediction type: " + type);
+        }
+
+        PredictionStrategy<Object, Object> strategy =
+                (PredictionStrategy<Object, Object>) strategyMap.get(type);
+        if (strategy == null) {
+            throw new PredictionIntegrationException(
+                    "PREDICTION_TYPE_UNSUPPORTED",
+                    HttpStatus.BAD_REQUEST,
+                    "No strategy registered for prediction type: " + type);
+        }
+
         Pupil pupil = account.getPupil();
-        PredictionRequest request = new PredictionRequest(
-                pupil.getId(),
-                psychTestService.getAccountRecentTests(account));
-        PredictionResponse externalResponse = requestPrediction(request);
-        validateExternalResponse(externalResponse, pupil.getId());
-        Prediction saved = savePrediction(externalResponse, pupil);
-        return toResponse(saved);
+        PredictionRequest request = strategy.buildRequest(account, pupil);
+        Object external = callExternal(strategy, request, url);
+        strategy.validate(external, pupil.getId());
+        return (P) strategy.save(external, pupil);
     }
 
-    private PredictionResponse requestPrediction(PredictionRequest request) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<PredictionRequest> requestEntity = new HttpEntity<>(request, headers);
-        log.info("Calling prediction service pupilId={}", request.getPupilId());
+    // ------------------------------------------------------------------
+    // HTTP error translation strategies only see domain exceptions
+    // ------------------------------------------------------------------
+
+    private <R> R callExternal(PredictionStrategy<R, ?> strategy,
+                               PredictionRequest request,
+                               String url) {
         try {
-            ResponseEntity<PredictionResponse> response = restTemplate.exchange(
-                    predictUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    PredictionResponse.class);
-            if (response.getBody() == null) {
-                throw invalidResponse("Prediction service returned an empty response", null);
-            }
-            return response.getBody();
-        } catch (PredictionIntegrationException exception) {
-            throw exception;
-        } catch (HttpClientErrorException exception) {
+            return strategy.call(request, url);
+        } catch (PredictionIntegrationException e) {
+            throw e;
+        } catch (HttpClientErrorException e) {
             throw new PredictionIntegrationException(
                     "PREDICTION_REQUEST_REJECTED",
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "Available test results are not sufficient for prediction",
-                    exception);
-        } catch (HttpServerErrorException exception) {
+                    e);
+        } catch (HttpServerErrorException e) {
             throw new PredictionIntegrationException(
                     "PREDICTION_SERVICE_ERROR",
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Prediction service is temporarily unavailable",
-                    exception);
-        } catch (ResourceAccessException exception) {
-            if (isTimeout(exception)) {
+                    e);
+        } catch (ResourceAccessException e) {
+            if (isTimeout(e)) {
                 throw new PredictionIntegrationException(
                         "PREDICTION_TIMEOUT",
                         HttpStatus.GATEWAY_TIMEOUT,
                         "Prediction took too long. Please try again later",
-                        exception);
+                        e);
             }
             throw new PredictionIntegrationException(
                     "PREDICTION_SERVICE_UNAVAILABLE",
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Prediction service is temporarily unavailable",
-                    exception);
-        } catch (RestClientException exception) {
+                    e);
+        } catch (RestClientException e) {
             throw new PredictionIntegrationException(
                     "PREDICTION_SERVICE_UNAVAILABLE",
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Prediction service is temporarily unavailable",
-                    exception);
+                    e);
         }
-    }
-
-    private void validateExternalResponse(PredictionResponse response, Long expectedPupilId) {
-        if (response == null
-                || response.getPupilId() != expectedPupilId
-                || response.getCluster() < 0
-                || response.getNearestSpecialistId() <= 0
-                || !Double.isFinite(response.getDistance())
-                || response.getDistance() < 0
-                || response.getPredictedProfession() == null
-                || response.getPredictedProfession().isBlank()
-                || response.getConfidenceCategory() == null
-                || response.getConfidenceCategory().isBlank()) {
-            throw invalidResponse("Prediction service returned an invalid response", null);
-        }
-    }
-
-    private Prediction savePrediction(PredictionResponse response, Pupil pupil) {
-        try {
-            Profession profession = professionService.getProfessionByName(response.getPredictedProfession());
-            Specialist specialist = specialistService.getSpecialistById(response.getNearestSpecialistId());
-            PredictionType predictionType = predictionTypeService.getByName(PredictionTypeEnum.CLUSTER);
-            if (profession == null || specialist == null || predictionType == null) {
-                throw invalidResponse("Prediction response references missing domain data", null);
-            }
-            Prediction prediction = Prediction.builder()
-                    .pupil(pupil)
-                    .predictedProfession(profession)
-                    .nearestSpecialist(specialist)
-                    .predictionType(predictionType)
-                    .cluster(response.getCluster())
-                    .distance(response.getDistance())
-                    .confidenceCategory(response.getConfidenceCategory())
-                    .build();
-            return repository.save(prediction);
-        } catch (PredictionIntegrationException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw invalidResponse("Prediction response references missing domain data", exception);
-        }
-    }
-
-    private PredictionResponse toResponse(Prediction prediction) {
-        return PredictionResponse.builder()
-                .pupilId(prediction.getPupil().getId())
-                .cluster(prediction.getCluster())
-                .predictedProfession(prediction.getPredictedProfession().getName())
-                .nearestSpecialistId(prediction.getNearestSpecialist().getId())
-                .distance(prediction.getDistance())
-                .confidenceCategory(prediction.getConfidenceCategory())
-                .createdAt(prediction.getCreatedAt())
-                .build();
-    }
-
-    private PredictionIntegrationException invalidResponse(String logMessage, Throwable cause) {
-        log.warn(logMessage, cause);
-        return new PredictionIntegrationException(
-                "PREDICTION_INVALID_RESPONSE",
-                HttpStatus.BAD_GATEWAY,
-                "Prediction service returned an invalid response",
-                cause);
     }
 
     private boolean isTimeout(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (current instanceof SocketTimeoutException) return true;
-            current = current.getCause();
+        for (Throwable c = throwable; c != null; c = c.getCause()) {
+            if (c instanceof SocketTimeoutException) return true;
         }
         return false;
     }
