@@ -32,6 +32,11 @@ public class MathPrediction {
     private Float finalScore;
     @Column(name = "utility")
     private Float utility;
+    @Column(name = "profession")
+    private String profession;
+
+    @Column(name = "recommendation_complex")
+    private String recommendationComplex;
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     @ManyToOne

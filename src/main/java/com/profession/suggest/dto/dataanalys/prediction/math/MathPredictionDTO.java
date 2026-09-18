@@ -28,4 +28,7 @@ public class MathPredictionDTO {
     private Float bennetNorm;
     private Float finalScore;
     private Float utility;
+    private String profession;
+    private String recommendationComplex;
+
 }
