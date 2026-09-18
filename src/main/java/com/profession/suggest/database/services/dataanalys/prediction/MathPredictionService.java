@@ -11,7 +11,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,15 +29,18 @@ public class MathPredictionService {
                 .map(mapper::toDTO)
                 .toList();
     }
-    public MathPredictionDTO toDTO(MathPrediction mathPrediction) {
-        return mapper.toDTO(mathPrediction);
-    }
 
-    public MathPredictionDTO getLatestByAccountId(Long accountId) {
+    public List<MathPredictionDTO> getLatestByAccountId(Long accountId) {
         Pupil pupil = pupilService.getPupilByAccountId(accountId);
-        MathPrediction p = repository.findTopByPupilIdOrderByCreatedAtDesc(pupil.getId())
-                .orElseThrow(() -> notFound("No math prediction found"));
-        return mapper.toDTO(p);
+        List<MathPrediction> mathPredictions = repository.findByPupilId(pupil.getId());
+        return mathPredictions.stream()
+                .sorted(Comparator.comparing(MathPrediction::getCreatedAt).reversed())
+                .collect(Collectors.toMap(
+                        MathPrediction::getProfession,
+                        mapper::toDTO,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new
+                )).values().stream().toList();
     }
 
     private PredictionIntegrationException notFound(String msg) {
