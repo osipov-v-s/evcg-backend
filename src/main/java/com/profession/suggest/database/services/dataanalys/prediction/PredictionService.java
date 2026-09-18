@@ -18,6 +18,7 @@ import com.profession.suggest.dto.dataanalys.prediction.PredictionDTO;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionMapper;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionRequest;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionResponse;
+import com.profession.suggest.dto.dataanalys.prediction.math.MathPredictionDTO;
 import com.profession.suggest.exceptions.PredictionIntegrationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.SocketTimeoutException;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -98,7 +101,7 @@ public class PredictionService {
         return predictByAccount(account, PredictionTypeEnum.CLUSTER);
     }
 
-    public MathPrediction predictMath(Account account) {
+    public List<MathPredictionDTO> predictMath(Account account) {
         return predictByAccount(account, PredictionTypeEnum.MATH);
     }
 
@@ -133,6 +136,18 @@ public class PredictionService {
         }
 
         Pupil pupil = account.getPupil();
+        strategy.lastPredictionAt(pupil.getId()).ifPresent(last -> {
+            LocalDateTime nextAllowed = last.plus(predictionProperties.getCooldown());
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isBefore(nextAllowed)) {
+                long minutes = Duration.between(now, nextAllowed).toMinutes() + 1;
+                throw new PredictionIntegrationException(
+                        "PREDICTION_RATE_LIMITED",
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "You can repeat prediction after " + minutes + " minutes"
+                );
+            }
+        });
         PredictionRequest request = strategy.buildRequest(account, pupil);
         Object external = callExternal(strategy, request, url);
         strategy.validate(external, pupil.getId());
