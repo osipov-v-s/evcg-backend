@@ -4,6 +4,7 @@ import com.profession.suggest.database.entities.dataanalys.prediction.Prediction
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -16,6 +17,7 @@ public class PredictionProperties {
      * Bound from prediction.service.urls.<TYPE> in application.yml
      */
     private Map<PredictionTypeEnum, String> urls = new EnumMap<>(PredictionTypeEnum.class);
+    private Duration cooldown = Duration.ofHours(1);
 
     public Map<PredictionTypeEnum, String> getUrls() {
         return urls;
@@ -23,5 +25,11 @@ public class PredictionProperties {
 
     public void setUrls(Map<PredictionTypeEnum, String> urls) {
         this.urls = urls;
+    }
+    public Duration getCooldown() {
+        return cooldown;
+    }
+    public void setCooldown(Duration cooldown) {
+        this.cooldown = cooldown;
     }
 }
