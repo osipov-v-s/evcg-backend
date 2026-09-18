@@ -23,7 +23,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -105,6 +107,13 @@ public class ClusterPredictionStrategy
                 .distance(r.getDistance())
                 .confidenceCategory(r.getConfidenceCategory())
                 .build());
+    }
+
+    @Override
+    public Optional<LocalDateTime> lastPredictionAt(Long pupilId) {
+        return predictionRepository
+                .findTopByPupilIdOrderByCreatedAtDesc(pupilId)
+                .map(Prediction::getCreatedAt);
     }
 
     private PredictionIntegrationException invalidResponse(String message) {
