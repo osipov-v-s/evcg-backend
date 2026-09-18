@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface MathPredictionRepository extends JpaRepository<MathPrediction, Long> {
     List<MathPrediction> findByPupilId(Long pupilId);
     Optional<MathPrediction> findTopByPupilIdOrderByCreatedAtDesc(Long pupilId);
+    void deleteAllByPupilId(Long pupilId);
 
 }
