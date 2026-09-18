@@ -1,20 +1,21 @@
 package com.profession.suggest.dto.dataanalys.prediction.math;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-public class MathPredictionResponse {
-    private Long pupilId;
-    private Float percentage;
-    private String recommendation;
-    private Float aizenNorm;
-    private Float belbinNorm;
-    private Float bennetNorm;
-    private Float finalScore;
-    private Float utility;
+public record MathPredictionResponse(
+        Long pupilId,
+        List<PredictedProfession> professions
+) {
 
+    public record PredictedProfession(
+        Float percentage,
+        String recommendation,
+        String recommendationComplex,
+        String profession,
+        Float aizenNorm,
+        Float belbinNorm,
+        Float bennetNorm,
+        Float finalScore,
+        Float utility
+    ){}
 }

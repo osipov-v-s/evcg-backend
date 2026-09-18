@@ -11,6 +11,7 @@ import com.profession.suggest.database.services.dataanalys.prediction.Prediction
 import com.profession.suggest.database.services.dataanalys.psychtests.PsychTestService;
 
 import com.profession.suggest.dto.dataanalys.prediction.PredictionRequest;
+import com.profession.suggest.dto.dataanalys.prediction.math.MathPredictionDTO;
 import com.profession.suggest.dto.dataanalys.prediction.math.MathPredictionResponse;
 import com.profession.suggest.exceptions.PredictionIntegrationException;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +21,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class MathPredictionStrategy implements PredictionStrategy<MathPredictionResponse, MathPrediction>{
+public class MathPredictionStrategy implements PredictionStrategy<MathPredictionResponse, List<MathPredictionDTO>>{
     private final RestTemplate restTemplate;
     private final PsychTestService psychTestService;
     private final PredictionTypeService predictionTypeService;
@@ -66,37 +70,77 @@ public class MathPredictionStrategy implements PredictionStrategy<MathPrediction
 
     @Override
     public void validate(MathPredictionResponse r, Long expectedPupilId) {
-        if (r == null
-                || !expectedPupilId.equals(r.getPupilId())
-                || r.getPercentage() == null || r.getPercentage() < 0 || r.getPercentage() > 100
-                || r.getRecommendation() == null || r.getRecommendation().isBlank()
-                || r.getFinalScore() == null
-                || r.getUtility() == null
-                || r.getAizenNorm() == null
-                || r.getBelbinNorm() == null
-                || r.getBennetNorm() == null) {
+        if (r == null || !expectedPupilId.equals(r.pupilId())) {
             throw invalidResponse("Math prediction service returned an invalid response");
+        }
+
+        List<MathPredictionResponse.PredictedProfession> predictions = r.professions();
+        if (predictions == null || predictions.isEmpty()) {
+            throw invalidResponse("Math prediction service returned no predictions");
+        }
+
+        for (MathPredictionResponse.PredictedProfession p: predictions) {
+            if (p == null
+                    || p.percentage() == null || p.percentage() < 0 || p.percentage() > 100
+                    || p.recommendation() == null || p.recommendation().isBlank()
+                    || p.profession() == null || p.profession().isBlank()
+                    || p.finalScore() == null
+                    || p.utility() == null
+                    || p.aizenNorm() == null
+                    || p.belbinNorm() == null
+                    || p.bennetNorm() == null) {
+                throw invalidResponse(
+                        "Math prediction service returned an invalid response ");
+            }
         }
     }
 
     @Override
-    public MathPrediction save(MathPredictionResponse r, Pupil pupil) {
+    public List<MathPredictionDTO> save(MathPredictionResponse r, Pupil pupil) {
         PredictionType type = predictionTypeService.getByName(PredictionTypeEnum.MATH);
         if (type == null) {
             throw invalidResponse("PredictionType MATH row is missing in DB");
         }
+        //mathPredictionRepository.deleteAllByPupilId(pupil.getId());
+        List<MathPrediction> entities = r.professions().stream()
+                .map(p -> MathPrediction.builder()
+                        .pupil(pupil)
+                        .predictionType(type)
+                        .percentage(p.percentage())
+                        .recommendation(p.recommendation())
+                        .recommendationComplex(p.recommendationComplex())
+                        .profession(p.profession())
+                        .aizenNorm(p.aizenNorm())
+                        .belbinNorm(p.belbinNorm())
+                        .bennetNorm(p.bennetNorm())
+                        .finalScore(p.finalScore())
+                        .utility(p.utility())
+                        .build())
+                .toList();
 
-        return mathPredictionRepository.save(MathPrediction.builder()
-                .pupil(pupil)
-                .predictionType(type)
-                .percentage(r.getPercentage())
-                .recommendation(r.getRecommendation())
-                .aizenNorm(r.getAizenNorm())
-                .belbinNorm(r.getBelbinNorm())
-                .bennetNorm(r.getBennetNorm())
-                .finalScore(r.getFinalScore())
-                .utility(r.getUtility())
-                .build());
+        return mathPredictionRepository.saveAll(entities).stream()
+                .map(e -> MathPredictionDTO.builder()
+                        .id(e.getId())
+                        .pupilId(e.getPupil().getId())
+                        .predictionType(e.getPredictionType().getName())
+                        .createdAt(e.getCreatedAt())
+                        .percentage(e.getPercentage())
+                        .recommendation(e.getRecommendation())
+                        .recommendationComplex(e.getRecommendationComplex())
+                        .aizenNorm(e.getAizenNorm())
+                        .belbinNorm(e.getBelbinNorm())
+                        .bennetNorm(e.getBennetNorm())
+                        .finalScore(e.getFinalScore())
+                        .utility(e.getUtility())
+                        .profession(e.getProfession())
+                        .build())
+                .toList();
+    }
+    @Override
+    public Optional<LocalDateTime> lastPredictionAt(Long pupilId) {
+        return mathPredictionRepository
+                .findTopByPupilIdOrderByCreatedAtDesc(pupilId)
+                .map(MathPrediction::getCreatedAt);
     }
 
     private PredictionIntegrationException invalidResponse(String message) {

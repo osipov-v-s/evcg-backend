@@ -53,18 +53,17 @@ public class PredictionController {
 
     @HasRole(RoleEnum.PUPIL)
     @PostMapping("/math")
-    public ResponseEntity<MathPredictionDTO> predictMath(
+    public ResponseEntity<List<MathPredictionDTO>> predictMath(
             @RequestAttribute("accountId") Long accountId) throws AccountNotFoundException {
-        MathPrediction saved = predictionService.predictMath(
-                accountService.getAccountById(accountId));
-        return ResponseEntity.ok(mathService.toDTO(saved));
+        return ResponseEntity.ok(predictionService.predictMath(
+                accountService.getAccountById(accountId)));
     }
 
     // ============ MATH reads ============
 
     @HasRole(RoleEnum.PUPIL)
     @GetMapping("/math/latest")
-    public ResponseEntity<MathPredictionDTO> getLatestMath(
+    public ResponseEntity<List<MathPredictionDTO>> getLatestMath(
             @RequestAttribute("accountId") Long accountId) {
         return ResponseEntity.ok(mathService.getLatestByAccountId(accountId));
     }
