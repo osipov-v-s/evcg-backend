@@ -5,10 +5,14 @@ import com.profession.suggest.database.entities.dataanalys.prediction.Prediction
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.dto.dataanalys.prediction.PredictionRequest;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 public interface PredictionStrategy<R, P> {
     PredictionTypeEnum type();
     PredictionRequest buildRequest(Account account, Pupil pupil);
     R call(PredictionRequest request, String url);
     void validate(R response, Long expectedPupilId);
     P save(R response, Pupil pupil);
+    Optional<LocalDateTime> lastPredictionAt(Long pupilId);
 }
