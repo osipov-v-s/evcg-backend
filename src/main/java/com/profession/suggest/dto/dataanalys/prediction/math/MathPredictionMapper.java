@@ -19,11 +19,13 @@ public class MathPredictionMapper {
                 .createdAt(entity.getCreatedAt())
                 .percentage(entity.getPercentage())
                 .recommendation(entity.getRecommendation())
+                .recommendationComplex(entity.getRecommendationComplex())
                 .aizenNorm(entity.getAizenNorm())
                 .belbinNorm(entity.getBelbinNorm())
                 .bennetNorm(entity.getBennetNorm())
                 .finalScore(entity.getFinalScore())
                 .utility(entity.getUtility())
+                .profession(entity.getProfession())
                 .build();
     }
 }
