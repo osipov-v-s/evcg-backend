@@ -247,6 +247,11 @@ public class PupilService {
         }
         throw new AccessDeniedException("Pupil is outside curator educational organization");
     }
+    public Account getAccountByPupilId(Long pupilId) {
+        return repository.findById(pupilId)
+                .orElseThrow(() -> new IllegalArgumentException("No pupil found with id = " + pupilId))
+                .getAccount();
+    }
 
     public PupilDTO assignSchool(Long pupilId, Long schoolId) {
         Pupil pupil = getPupilById(pupilId);
