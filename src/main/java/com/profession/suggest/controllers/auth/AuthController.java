@@ -4,18 +4,16 @@ import com.profession.suggest.configuration.security.annotation.HasRole;
 import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.pupil.PupilService;
-import com.profession.suggest.dto.auth.AccountApiRegisterDTO;
-import com.profession.suggest.dto.auth.AccountDTO;
-import com.profession.suggest.dto.auth.AccountRegisterRequestDTO;
-import com.profession.suggest.dto.auth.RoleDTO;
+import com.profession.suggest.dto.auth.*;
 import com.profession.suggest.dto.pupil.PupilDTO;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.beans.factory.annotation.Value;
 import javax.security.auth.login.AccountNotFoundException;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +25,8 @@ import java.util.stream.Collectors;
 public class AuthController {
     private final PupilService pupilService;
     private final AccountService accountService;
+    @Value("${account.default.password}")
+    private String defaultPassword;
 
     public AuthController(PupilService pupilService, AccountService accountService) {
         this.pupilService = pupilService;
@@ -91,6 +91,12 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error occurred while updating password"));
         }
+    }
+    @RolesAllowed({"ADMIN"})
+    @PostMapping("/pupil/reset-password")
+    public ResponseEntity<?> resetPasswordByPupilId(@RequestBody ResetPasswordRequest request) throws AccountNotFoundException {
+        accountService.updatePassword(pupilService.getAccountByPupilId(request.getId()).getId(), defaultPassword);
+        return ResponseEntity.ok("password reset successfully");
     }
     @GetMapping("/is-email-free")
     public ResponseEntity<Boolean> isEmailFree(@RequestParam String email ) {
