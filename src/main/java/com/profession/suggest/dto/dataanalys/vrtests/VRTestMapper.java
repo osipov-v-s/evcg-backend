@@ -12,6 +12,7 @@ public class VRTestMapper {
     public VRTestDTO toDTO(VRTest test) {
         VRTestDTO dto = new VRTestDTO();
         dto.setId(test.getId());
+        dto.setScore(test.getScore());
         dto.setCompletionTimeSeconds(test.getCompletionTimeSeconds());
         dto.setTypeName(test.getType().getName());
         dto.setProfessionId(test.getProfession().getId());
@@ -24,6 +25,7 @@ public class VRTestMapper {
             AnswerDTO answerDTO = new AnswerDTO();
             answerDTO.setAnswerText(answer.getAnswerText());
             answerDTO.setQuestionText(answer.getQuestionText());
+            answerDTO.setAnswerScore(answer.getAnswerScore());
             answersDTOs.add(answerDTO);
         }
         dto.setAnswers(answersDTOs);

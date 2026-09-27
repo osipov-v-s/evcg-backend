@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class AnswerDTO {
     private String questionText;
     private String answerText;
+    private Double answerScore;
 }

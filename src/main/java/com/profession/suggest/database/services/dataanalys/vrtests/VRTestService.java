@@ -50,17 +50,18 @@ public class VRTestService {
     private final ProfessionService professionService;
     private final AccountService accountService;
     private final VRTestMapper mapper;
+    private final static int VR_TESTS_LIMIT = 4;
 
     public VRTestDTO createTestWithLimitCheck(VRTestDTO dto) {
         // Validate limits based on user type
         if (dto.getPupilId() != null) {
             long count = countTestsByPupilAndProfession(dto.getPupilId(), dto.getProfessionId());
-            if (count >= 2) {
+            if (count >= VR_TESTS_LIMIT) {
                 throw new IllegalArgumentException("Maximum 2 tests allowed per profession.");
             }
         } else if (dto.getSpecialistId() != null) {
             long count = countTestsBySpecialistAndProfession(dto.getSpecialistId(), dto.getProfessionId());
-            if (count >= 2) {
+            if (count >= VR_TESTS_LIMIT) {
                 throw new IllegalArgumentException("Maximum 2 tests allowed per profession.");
             }
         } else {
@@ -81,9 +82,11 @@ public class VRTestService {
         if (dto.getTypeName() == null || dto.getTypeName().isEmpty()) {
             throw new IllegalArgumentException("typeName is required");
         }
+        /*
         if (dto.getAnswers() == null || dto.getAnswers().isEmpty()) {
             throw new IllegalArgumentException("Answers are required");
         }
+         */
         VRTestType type = typeService.getByName(dto.getTypeName());
         Profession profession = professionService.getProfessionById(dto.getProfessionId());
         if (type == null)
@@ -92,6 +95,7 @@ public class VRTestService {
             throw new IllegalArgumentException("No profession found with id " + dto.getProfessionId());
         VRTest test = new VRTest();
         test.setType(type);
+        test.setScore(dto.getScore());
         test.setProfession(profession);
         test.setCompletionTimeSeconds(dto.getCompletionTimeSeconds());
 
@@ -100,13 +104,14 @@ public class VRTestService {
         else if (dto.getSpecialistId() != null)
             test.setSpecialist(specialistService.getSpecialistById(dto.getSpecialistId()));
         VRTest savedTest = repository.save(test);
-
+        //TODO check if answers null all need to work
         Set<VRTestAnswer> answers = new HashSet<>();
         for (AnswerDTO answerDTO : dto.getAnswers()) {
             VRTestAnswer answer = new VRTestAnswer();
             answer.setVrTest(savedTest);
             answer.setQuestionText(answerDTO.getQuestionText());
             answer.setAnswerText(answerDTO.getAnswerText());
+            answer.setAnswerScore(answerDTO.getAnswerScore());
             answers.add(answer);
         }
         vrTestAnswerService.createAll(answers);

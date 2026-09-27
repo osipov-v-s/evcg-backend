@@ -18,6 +18,8 @@ public class VRTestAnswer {
     private String questionText;
     @Column(name = "answer_text")
     private String answerText;
+    @Column(name = "answer_score")
+    private Double answerScore;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vr_test_id", nullable = false)
     @JsonIgnore

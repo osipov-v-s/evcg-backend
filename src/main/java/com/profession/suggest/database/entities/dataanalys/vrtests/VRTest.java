@@ -23,6 +23,8 @@ public class VRTest {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "score")
+    private Double score;
     @Column(name = "completion_time_seconds")
     private Double completionTimeSeconds;
     @Column(name = "created_at")
