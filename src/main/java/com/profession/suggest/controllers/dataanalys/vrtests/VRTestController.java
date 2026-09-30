@@ -8,23 +8,42 @@ import com.profession.suggest.database.services.dataanalys.vrtests.VRTestService
 import com.profession.suggest.database.services.dataanalys.vrtests.VRTestTypeService;
 import com.profession.suggest.dto.dataanalys.TestTypeStatusDTO;
 import com.profession.suggest.dto.dataanalys.vrtests.VRTestDTO;
-import lombok.AllArgsConstructor;
+import com.profession.suggest.services.files.FileValidateService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.security.auth.login.AccountNotFoundException;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/vr-tests")
-@AllArgsConstructor
 @Slf4j
 public class VRTestController {
     private final VRTestService vrTestService;
     private final AccountService accountService;
     private final VRTestTypeService vrTestTypeService;
+    private final FileValidateService files;
+    @Value("${public.folder}")
+    private String publicFolder;
+
+    public VRTestController(VRTestService vrTestService,
+                            AccountService accountService,
+                            VRTestTypeService vrTestTypeService,
+                            FileValidateService files ){
+        this.vrTestService = vrTestService;
+        this.accountService = accountService;
+        this.vrTestTypeService = vrTestTypeService;
+        this.files = files;
+    }
+
 
     @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
     @PostMapping
@@ -88,7 +107,13 @@ public class VRTestController {
                                                                @RequestParam boolean active) {
         return ResponseEntity.ok(vrTestTypeService.setActive(typeId, active));
     }
-
-
+    @GetMapping("/available")
+    @Cacheable("vrTests")
+    public ResponseEntity<List<String>> availableVRTests() throws IOException {
+        return ResponseEntity.ok(files.findValidFolders(
+                Paths.get(publicFolder).resolve("vr_tests"),
+                Set.of("before.json", "after.json")
+        ));
+    }
 
 }
