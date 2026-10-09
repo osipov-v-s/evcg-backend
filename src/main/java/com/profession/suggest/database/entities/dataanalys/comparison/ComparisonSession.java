@@ -1,6 +1,7 @@
 package com.profession.suggest.database.entities.dataanalys.comparison;
 
 import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.files.StoredFile;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -26,7 +27,9 @@ public class ComparisonSession {
 
     @Column(name = "file_path", nullable = false)
     private String filePath;  // Path to the uploaded JSON file
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "file_id")
+    private StoredFile file;
     // Metadata from the JSON
     @Column(name = "app_version")
     private String appVersion;

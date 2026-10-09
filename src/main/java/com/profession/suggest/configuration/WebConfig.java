@@ -53,7 +53,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/simulations/create",
                         "/api/simulations/types",
 
-                        "/api/comparison/**"
+                        "/api/comparison/**",
+                        "/api/files/**"
                 );
     }
 

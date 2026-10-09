@@ -1,5 +1,6 @@
 package com.profession.suggest.database.entities.dataanalys.simulation;
 
+import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import jakarta.persistence.*;
@@ -22,6 +23,9 @@ public class Simulation {
     private Long id;
     @Column(name = "file_path")
     private String filePath;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "file_id")
+    private StoredFile file;
     @Column(name = "start_sim")
     private LocalDateTime startSimulation;
     @Column(name = "end_sim")

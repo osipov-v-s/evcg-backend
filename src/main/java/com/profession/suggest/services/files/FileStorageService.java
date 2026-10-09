@@ -73,4 +73,10 @@ public class FileStorageService {
     public String extractFilename(String path){
         return path.replaceFirst(".*/", "");
     }
+    public Path resolve(String relativeKey) {
+        String clean = relativeKey.startsWith("public/")
+                ? relativeKey.substring("public/".length())
+                : relativeKey;
+        return Paths.get(baseFolder).resolve(clean);
+    }
 }
