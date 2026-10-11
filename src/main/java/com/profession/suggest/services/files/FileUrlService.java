@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 public class FileUrlService {
     public String url(StoredFile f) {
         if (f == null) return null;
-        return f.getKind().isPublic() ? "/public/" + f.getStorageKey()
+        return f.getKind().isPublic() ? "/" + f.getStorageKey()
                 : "/api/files/" + f.getId() + "/content";
     }
     public StoredFileDTO toDto(StoredFile f) {
