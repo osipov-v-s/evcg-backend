@@ -6,12 +6,16 @@ import com.profession.suggest.database.entities.dataanalys.simulation.Simulation
 import com.profession.suggest.database.entities.dataanalys.simulation.SimulationType;
 import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
+import com.profession.suggest.services.files.FileUrlService;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 @Component
+@AllArgsConstructor
 public class SimulationMapper {
+    private final FileUrlService fileUrlService;
     public Simulation fromDTO(SimulationDTO dto,
                               SimulationType simulationType,
                               Profession profession,
@@ -45,6 +49,8 @@ public class SimulationMapper {
                 .map(SimulationDataSource::getName)
                 .orElse(null));
         dto.setDescription(simulation.getDescription());
+
+        dto.setFile(fileUrlService.toDto(simulation.getFile()));
         dto.setFilePath(simulation.getFilePath());
         dto.setCreatedAt(simulation.getCreatedAt());
         return dto;

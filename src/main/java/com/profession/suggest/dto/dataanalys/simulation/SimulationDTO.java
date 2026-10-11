@@ -1,5 +1,6 @@
 package com.profession.suggest.dto.dataanalys.simulation;
 
+import com.profession.suggest.dto.file.StoredFileDTO;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 public class SimulationDTO {
     private Long id;
     private String filePath;
+    private StoredFileDTO file;
     private LocalDateTime startSimulation;
     private LocalDateTime endSimulation;
     private LocalDateTime createdAt;

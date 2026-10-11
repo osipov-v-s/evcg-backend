@@ -1,5 +1,6 @@
 package com.profession.suggest.dto.dataanalys.comparison;
 
+import com.profession.suggest.dto.file.StoredFileDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class SessionResponseDTO {
     private Long collectionId;
     private String collectionName;
     private String filePath;
+    private StoredFileDTO file;
     private Integer recordCount;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

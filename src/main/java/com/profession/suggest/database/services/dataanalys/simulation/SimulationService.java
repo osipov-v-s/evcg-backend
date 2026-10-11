@@ -6,9 +6,12 @@ import com.profession.suggest.database.entities.dataanalys.simulation.Scenario;
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
 import com.profession.suggest.database.entities.dataanalys.simulation.SimulationDataSource;
 import com.profession.suggest.database.entities.dataanalys.simulation.SimulationType;
+import com.profession.suggest.database.entities.files.FileKind;
+import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.repositories.dataanalys.simulation.SimulationRepository;
+import com.profession.suggest.database.services.file.StoredFileService;
 import com.profession.suggest.database.services.profession.ProfessionService;
 import com.profession.suggest.database.services.pupil.PupilService;
 import com.profession.suggest.dto.dataanalys.simulation.SimulationDTO;
@@ -38,6 +41,7 @@ public class SimulationService {
     private final SimulationDataSourceService simulationDataSourceService;
     private final PupilService pupilService;
     private final FileStorageService fileStorageService;
+    private final StoredFileService storedFileService;
     private final SimulationMapper mapper;
     /* TODO
     * simulation can be created even if account with email doesn't exists
@@ -46,7 +50,7 @@ public class SimulationService {
     @Transactional
     public Simulation createSimulation(SimulationDTO simulationDTO, MultipartFile file, Account requester) {
         try {
-
+            StoredFile storedFile = storedFileService.store(file, FileKind.SIMULATION, requester.getId());
             Simulation simulation = new Simulation();
             SimulationType simulationType = simulationTypeService.getByName(simulationDTO.getSimulationType());
             Scenario scenario = scenarioService.getScenarioByName(simulationDTO.getScenario());
@@ -62,7 +66,8 @@ public class SimulationService {
             simulation.setStartSimulation(simulationDTO.getStartSimulation());
             simulation.setEndSimulation(simulationDTO.getEndSimulation());
             simulation.setPupil(pupil);
-            simulation.setFilePath(fileStorageService.saveFile(file, "simulations", true));
+            simulation.setFile(storedFile);
+            simulation.setFilePath(storedFile.getStorageKey());
 
             return repository.save(simulation);
         } catch (IOException e) {

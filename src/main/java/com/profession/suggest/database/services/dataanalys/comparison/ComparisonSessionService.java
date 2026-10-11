@@ -4,11 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.profession.suggest.database.entities.auth.Account;
 import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonCollection;
 import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonSession;
+import com.profession.suggest.database.entities.files.FileKind;
+import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.repositories.dataanalys.comparison.ComparisonSessionRepository;
+import com.profession.suggest.database.services.file.StoredFileService;
 import com.profession.suggest.dto.dataanalys.comparison.SessionData;
 import com.profession.suggest.dto.dataanalys.comparison.SessionResponseDTO;
 import com.profession.suggest.dto.dataanalys.comparison.SessionSubmitRequest;
 import com.profession.suggest.services.files.FileStorageService;
+import com.profession.suggest.services.files.FileUrlService;
 import com.profession.suggest.services.json.JsonParserService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -31,7 +35,10 @@ public class ComparisonSessionService {
     private final ComparisonSessionRepository repository;
     private final ComparisonCollectionService collectionService;
     private final FileStorageService fileStorageService;
+    private final StoredFileService storedFileService;
+    private final FileUrlService fileUrlService;
     private final JsonParserService jsonParserService;
+
 
     /**
      * Submit a completed comparison test session
@@ -59,13 +66,14 @@ public class ComparisonSessionService {
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + sessionData.getCollectionId()));
 
         String subfolder = "comparison/sessions";
-        String filePath = fileStorageService.saveFile(dataFile, subfolder, true);
-        log.info("Saved session file: {}", filePath);
+        //String filePath = fileStorageService.saveFile(dataFile, subfolder, true);
+        StoredFile storedFile = storedFileService.store(dataFile, FileKind.COMPARISON_SESSION, account.getId());
 
         // 4. Create session record
         ComparisonSession session = new ComparisonSession();
         session.setClientSessionId(sessionData.getClientSessionId());
-        session.setFilePath(filePath);
+        session.setFilePath(storedFile.getStorageKey());
+        session.setFile(storedFile);
         session.setAppVersion(sessionData.getAppVersion());
         session.setDataSchemaVersion(sessionData.getDataSchemaVersion());
         session.setDataSourceMode(sessionData.getDataSourceMode());
@@ -124,16 +132,14 @@ public class ComparisonSessionService {
     @Transactional
     public void deleteSession(Long sessionId, Account account) throws IOException {
         ComparisonSession session = getSessionById(sessionId, account);
-
-        // Delete file
+        StoredFile stored = session.getFile();
         String filePath = session.getFilePath();
-        if (filePath != null) {
+        if (stored != null)
+            storedFileService.delete(session.getFile());
+        if (filePath != null && (stored == null || !filePath.equals(stored.getStorageKey())))
             fileStorageService.deleteFile(filePath);
-            log.info("Deleted session file: {}", filePath);
-        }
 
         repository.delete(session);
-        log.info("Deleted session: {}", sessionId);
     }
 
     /**
@@ -156,6 +162,7 @@ public class ComparisonSessionService {
                 .collectionId(session.getCollection().getId())
                 .collectionName(session.getCollection().getName())
                 .filePath(session.getFilePath())
+                .file(fileUrlService.toDto(session.getFile()))
                 .recordCount(session.getRecordCount())
                 .startedAt(session.getStartedAt())
                 .completedAt(session.getCompletedAt())

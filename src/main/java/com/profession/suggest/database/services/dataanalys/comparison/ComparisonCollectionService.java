@@ -2,10 +2,14 @@ package com.profession.suggest.database.services.dataanalys.comparison;
 
 import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonCollection;
 import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonSample;
+import com.profession.suggest.database.entities.files.FileKind;
+import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.repositories.dataanalys.comparison.ComparisonCollectionRepository;
+import com.profession.suggest.database.services.file.StoredFileService;
 import com.profession.suggest.dto.dataanalys.comparison.CollectionResponseDTO;
 import com.profession.suggest.dto.dataanalys.comparison.SampleDTO;
 import com.profession.suggest.services.files.FileStorageService;
+import com.profession.suggest.services.files.FileUrlService;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -26,6 +30,8 @@ public class ComparisonCollectionService {
     private final ComparisonCollectionRepository repository;
     private final ComparisonSampleService sampleService;
     private final FileStorageService fileStorageService;
+    private final FileUrlService fileUrlService;
+    private final StoredFileService storedFileService;
     private final EntityManager entityManager;
     /**
      * Get the most recent active collection with its samples
@@ -105,20 +111,22 @@ public class ComparisonCollectionService {
                     ? sampleDescriptions.get(i) : null;
 
             // Save image
-            String imagePath = fileStorageService.saveFile(image, subfolder, true);
-            log.info("Saved image: {}", imagePath);
+            StoredFile storedFile = storedFileService.store(image, FileKind.COMPARISON_SAMPLE_IMAGE, null);
+            //String imagePath = fileStorageService.saveFile(image, subfolder, true);
+            //log.info("Saved image: {}", imagePath);
 
             // Create sample
             ComparisonSample sample = new ComparisonSample();
             sample.setSampleName(sampleName);
-            sample.setImagePath(imagePath);
+            sample.setImagePath(storedFile.getStorageKey());
+            sample.setImageFile(storedFile);
             sample.setDescription(sampleDescription);
             sample.setDisplayOrder(i);
             sample.setCollection(savedCollection);
 
             ComparisonSample savedSample = sampleService.save(sample);
             savedSamples.add(savedSample);
-            log.info("Created sample: {} with image: {}", sampleName, imagePath);
+            //log.info("Created sample: {} with image: {}", sampleName, imagePath);
         }
         savedCollection.setSamples(savedSamples);
         return toResponseDTO(savedCollection);
@@ -134,9 +142,11 @@ public class ComparisonCollectionService {
         for (ComparisonSample sample : samples) {
             // Delete image file
             String imagePath = sample.getImagePath();
-            if (imagePath != null) {
+            StoredFile stored = sample.getImageFile();
+            if (stored !=  null)
+                storedFileService.delete(stored);
+            if (imagePath != null && (stored == null || !imagePath.equals(stored.getStorageKey()))) {
                 fileStorageService.deleteFile(imagePath);
-                log.info("Deleted image: {}", imagePath);
             }
         }
 
@@ -159,6 +169,7 @@ public class ComparisonCollectionService {
                         .id(sample.getId())
                         .sampleName(sample.getSampleName())
                         .imagePath(sample.getImagePath())
+                        .file(fileUrlService.toDto(sample.getImageFile()))
                         .description(sample.getDescription())
                         .displayOrder(sample.getDisplayOrder())
                         .build())
