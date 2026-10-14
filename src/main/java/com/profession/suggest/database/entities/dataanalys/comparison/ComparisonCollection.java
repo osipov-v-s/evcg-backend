@@ -39,6 +39,6 @@ public class ComparisonCollection {
     @Column(name = "created_at")
     @CreationTimestamp
     private LocalDateTime createdAt;
-    @OneToMany(mappedBy = "collection", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "collection")
     private List<ComparisonSample> samples = new ArrayList<>();
 }

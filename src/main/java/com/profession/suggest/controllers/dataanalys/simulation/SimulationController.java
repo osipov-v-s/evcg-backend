@@ -41,15 +41,15 @@ public class SimulationController {
         this.simulationMapper = simulationMapper;
         this.accountService = accountService;
     }
-    //@HasRole({RoleEnum.PUPIL, RoleEnum.ADMIN})
-    @PostMapping("/create")
-    public ResponseEntity<SimulationDTO> createSimulation(@RequestPart("metadata") SimulationDTO simulationDTO,
-                                                           @RequestPart("file") MultipartFile file,
-                                                           @RequestAttribute("accountId") Long accountId) throws Exception {
-        Account requester = accountService.getAccountById(accountId);
-        return ResponseEntity.ok(simulationMapper
-                .toDTO(simulationService
-                        .createSimulation(simulationDTO, file, requester), simulationDTO.getEmail()));
+
+    @PostMapping(consumes = "application/json;charset=UTF-8")
+    @HasRole({RoleEnum.PUPIL, RoleEnum.ADMIN})
+    public ResponseEntity<SimulationDTO> createFromFile(
+            @RequestBody SimulationJsonCreateRequest req,
+            @RequestAttribute("accountId") Long accountId) throws Exception {
+        return ResponseEntity.ok(simulationMapper.toDTO(
+                simulationService.createFromFileId(req, accountId),
+                req.getEmail()));
     }
     //@HasRole(RoleEnum.ADMIN)
     @GetMapping
@@ -76,7 +76,6 @@ public class SimulationController {
     @PatchMapping("/{simulationId}/description")
     public ResponseEntity<SimulationDTO> updateDescription(@PathVariable("simulationId") Long simulationId,
                                                @RequestBody String description) {
-        ;
         return ResponseEntity.ok(simulationService.updateDescriptionById(simulationId, description));
     }
 
@@ -84,7 +83,7 @@ public class SimulationController {
     public ResponseEntity<List<SimulationTypeDTO>> getSimulationTypes() {
         return ResponseEntity.ok(simulationTypeService.getSimulationTypes());
     }
-    @HasRole(RoleEnum.ADMIN)
+    //@HasRole(RoleEnum.ADMIN)
     @PostMapping("/types")
     public ResponseEntity<SimulationTypeDTO> createSimulationType(@RequestBody SimulationTypeDTO simulationTypeDTO) {
         return ResponseEntity.ok(simulationTypeService.createSimulation(simulationTypeDTO));

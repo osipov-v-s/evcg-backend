@@ -1,6 +1,7 @@
 package com.profession.suggest.database.services.dataanalys.simulation;
 
 import com.profession.suggest.database.entities.auth.Account;
+import com.profession.suggest.database.entities.auth.role.Role;
 import com.profession.suggest.database.entities.auth.role.RoleEnum;
 import com.profession.suggest.database.entities.dataanalys.simulation.Scenario;
 import com.profession.suggest.database.entities.dataanalys.simulation.Simulation;
@@ -11,10 +12,12 @@ import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.entities.professions.Profession;
 import com.profession.suggest.database.entities.users.pupil.Pupil;
 import com.profession.suggest.database.repositories.dataanalys.simulation.SimulationRepository;
+import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.file.StoredFileService;
 import com.profession.suggest.database.services.profession.ProfessionService;
 import com.profession.suggest.database.services.pupil.PupilService;
 import com.profession.suggest.dto.dataanalys.simulation.SimulationDTO;
+import com.profession.suggest.dto.dataanalys.simulation.SimulationJsonCreateRequest;
 import com.profession.suggest.dto.dataanalys.simulation.SimulationMapper;
 import com.profession.suggest.services.files.FileStorageService;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,8 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.data.domain.Pageable;
+
+import javax.security.auth.login.AccountNotFoundException;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 @AllArgsConstructor
@@ -40,45 +46,65 @@ public class SimulationService {
     private final ScenarioService scenarioService;
     private final SimulationDataSourceService simulationDataSourceService;
     private final PupilService pupilService;
-    private final FileStorageService fileStorageService;
+    private final AccountService accountService;
     private final StoredFileService storedFileService;
     private final SimulationMapper mapper;
     /* TODO
     * simulation can be created even if account with email doesn't exists
     * (register account with default password and default pupil and continue)
     * */
-    @Transactional
-    public Simulation createSimulation(SimulationDTO simulationDTO, MultipartFile file, Account requester) {
-        try {
-            StoredFile storedFile = storedFileService.store(file, FileKind.SIMULATION, requester.getId());
-            Simulation simulation = new Simulation();
-            SimulationType simulationType = simulationTypeService.getByName(simulationDTO.getSimulationType());
-            Scenario scenario = scenarioService.getScenarioByName(simulationDTO.getScenario());
-            SimulationDataSource simulationDataSource = simulationDataSourceService.getByName(simulationDTO.getSimulationDataSource());
-            Profession profession = professionService.getProfessionByName(simulationDTO.getProfession());
-            Pupil pupil = resolvePupil(simulationDTO, requester);
-            //if there is no pupil found by account email,
-            // that means need to create Account with email and Pupil
-            simulation.setSimulationType(simulationType);
-            simulation.setProfession(profession);
-            simulation.setScenario(scenario);
-            simulation.setSimulationDataSource(simulationDataSource);
-            simulation.setStartSimulation(simulationDTO.getStartSimulation());
-            simulation.setEndSimulation(simulationDTO.getEndSimulation());
-            simulation.setPupil(pupil);
-            simulation.setFile(storedFile);
-            simulation.setFilePath(storedFile.getStorageKey());
 
-            return repository.save(simulation);
-        } catch (IOException e) {
-            log.error("Error while saving simulation file for email {}", simulationDTO.getEmail() ,e);
-            throw new RuntimeException("Failed to save a file", e);
+    @Transactional
+    public Simulation createFromFileId(SimulationJsonCreateRequest req, Long accountId) throws AccountNotFoundException {
+        Account requester = accountService.getAccountById(accountId);
+        if (req.getFileId() == null)
+            throw new IllegalArgumentException("field is required");
+        StoredFile stored = storedFileService.getStoredFile(req.getFileId());
+        if (stored.getKind() != FileKind.SIMULATION)
+            throw new IllegalArgumentException("field must reference a SMULATION file");
+        boolean isAdmin = requester.getRoles().stream()
+                .map(Role::getName)
+                .anyMatch(r -> r == RoleEnum.ADMIN);
+        if (!isAdmin && !Objects.equals(stored.getOwnerAccountId(), requester.getId()))
+            throw new SecurityException("fileId does not belong to requester");
+        SimulationDTO dto = new SimulationDTO();
+        dto.setEmail(req.getEmail());
+        dto.setSimulationType(req.getSimulationType());
+        dto.setScenario(req.getScenario());
+        dto.setSimulationDataSource(req.getSimulationDataSource());
+        dto.setProfession(req.getProfession());
+        dto.setStartSimulation(req.getStartSimulation());
+        dto.setEndSimulation(req.getEndSimulation());
+        dto.setDescription(req.getDescription());
+        try {
+            return persistSimulation(dto, stored, requester);
         } catch (SecurityException e) {
             throw e;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Error occurred while creating simulation for email: {}", simulationDTO.getEmail() ,e);
-            throw new RuntimeException("Failed to create simulation for email",  e);
+            throw new RuntimeException("Failed to create simulation", e);
         }
+    }
+    private Simulation persistSimulation(SimulationDTO dto, StoredFile stored, Account requester) throws Exception {
+        Simulation simulation = new Simulation();
+        simulation.setSimulationType(simulationTypeService.getByName(dto.getSimulationType()));
+        simulation.setScenario(scenarioService.getScenarioByName(dto.getScenario()));
+        simulation.setSimulationDataSource(simulationDataSourceService.getByName(dto.getSimulationDataSource()));
+        simulation.setProfession(professionService.getProfessionByName(dto.getProfession()));
+        Pupil pupil = resolvePupil(dto, requester);
+        simulation.setPupil(pupil);
+        simulation.setStartSimulation(dto.getStartSimulation());
+        simulation.setEndSimulation(dto.getEndSimulation());
+        simulation.setDescription(dto.getDescription());
+        simulation.setFile(stored);
+
+        Long pupilAccountId = pupil.getAccount() != null ? pupil.getAccount().getId() : null;
+        if (pupilAccountId != null && Objects.equals(stored.getOwnerAccountId(), pupilAccountId)){
+            stored.setOwnerAccountId(pupilAccountId);
+            storedFileService.save(stored);
+        }
+        return repository.save(simulation);
     }
 
     private Pupil resolvePupil(SimulationDTO simulationDTO, Account requester) throws Exception {

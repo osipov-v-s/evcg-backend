@@ -23,9 +23,6 @@ public class ComparisonSample {
 
     @Column(name = "sample_name", nullable = false)
     private String sampleName;
-
-    @Column(name = "image_path", nullable = false)
-    private String imagePath;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "image_file_id")
     private StoredFile imageFile;

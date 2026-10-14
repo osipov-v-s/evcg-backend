@@ -4,6 +4,7 @@ import com.profession.suggest.database.entities.dataanalys.comparison.Comparison
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,4 +27,5 @@ public interface ComparisonSessionRepository extends JpaRepository<ComparisonSes
     List<ComparisonSession> findCompletedByAccountId(@Param("accountId") Long accountId);
 
     long countByAccountIdAndCollectionId(Long accountId, Long collectionId);
+
 }

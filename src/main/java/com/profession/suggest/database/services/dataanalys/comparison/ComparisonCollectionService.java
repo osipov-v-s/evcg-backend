@@ -7,6 +7,7 @@ import com.profession.suggest.database.entities.files.StoredFile;
 import com.profession.suggest.database.repositories.dataanalys.comparison.ComparisonCollectionRepository;
 import com.profession.suggest.database.services.file.StoredFileService;
 import com.profession.suggest.dto.dataanalys.comparison.CollectionResponseDTO;
+import com.profession.suggest.dto.dataanalys.comparison.CreateCollectionRequest;
 import com.profession.suggest.dto.dataanalys.comparison.SampleDTO;
 import com.profession.suggest.services.files.FileStorageService;
 import com.profession.suggest.services.files.FileUrlService;
@@ -71,89 +72,56 @@ public class ComparisonCollectionService {
         return collections.map(this::toResponseDTO);
     }
     @Transactional
-    public CollectionResponseDTO createCollectionWithSamples(
-            String name,
-            String description,
-            List<MultipartFile> images,
-            List<String> sampleNames,
-            List<String> sampleDescriptions,
-            String appVersion,
-            String dataSchemaVersion) throws IOException {
-
-        log.info("Creating collection: {}", name);
-
-        // 1. Validate
-        if (images == null || images.isEmpty()) {
-            throw new IllegalArgumentException("At least one image is required");
-        }
-        if (sampleNames == null || sampleNames.size() != images.size()) {
-            throw new IllegalArgumentException("Sample names count must match images count");
-        }
-
-        // 2. Create Collection
+    public CollectionResponseDTO createCollectionWithSamples(CreateCollectionRequest req) {
+        log.info("Creating collection: {}", req.getName());
+        if (req.getName() == null || req.getName().isBlank())
+            throw new IllegalArgumentException("name is required");
+        if (req.getSamples() == null || req.getSamples().isEmpty())
+            throw new IllegalArgumentException("No samples found");
         ComparisonCollection collection = new ComparisonCollection();
-        collection.setName(name);
-        collection.setDescription(description);
+        collection.setName(req.getName());
+        collection.setDescription(req.getDescription());
         collection.setIsActive(true);
-        collection.setAppVersion(appVersion != null ? appVersion : "0.1.0");
-        collection.setDataSchemaVersion(dataSchemaVersion != null ? dataSchemaVersion : "1.0");
-
+        collection.setAppVersion(req.getAppVersion() != null ? req.getAppVersion() : "0.1.0");
+        collection.setDataSchemaVersion(req.getDataSchemaVersion() != null ? req.getDataSchemaVersion() : "1.0");
         ComparisonCollection savedCollection = repository.save(collection);
         log.info("Created collection with ID: {}", savedCollection.getId());
 
-        // 3. Save images and create samples
-        String subfolder = "comparison/collections/" + savedCollection.getId();
         List<ComparisonSample> savedSamples = new ArrayList<>();
-        for (int i = 0; i < images.size(); i++) {
-            MultipartFile image = images.get(i);
-            String sampleName = sampleNames.get(i);
-            String sampleDescription = sampleDescriptions != null && i < sampleDescriptions.size()
-                    ? sampleDescriptions.get(i) : null;
-
-            // Save image
-            StoredFile storedFile = storedFileService.store(image, FileKind.COMPARISON_SAMPLE_IMAGE, null);
-            //String imagePath = fileStorageService.saveFile(image, subfolder, true);
-            //log.info("Saved image: {}", imagePath);
-
-            // Create sample
+        for (int i = 0; i < req.getSamples().size();i++) {
+            CreateCollectionRequest.SampleItem item = req.getSamples().get(i);
+            if (item.getFileId() == null)
+                throw new IllegalArgumentException("samples[" + i + "].fieldId is required");
+            if (item.getSampleName() == null || item.getSampleName().isBlank())
+                item.setSampleName("SampleItem " + i);
+            StoredFile stored = storedFileService.getStoredFile(item.getFileId());
+            if (stored.getKind() != FileKind.COMPARISON_SAMPLE_IMAGE)
+                throw new IllegalArgumentException("sample with index " + i + "must reference a COMPARISON_SAMPLE_IMAGE file" );
             ComparisonSample sample = new ComparisonSample();
-            sample.setSampleName(sampleName);
-            sample.setImagePath(storedFile.getStorageKey());
-            sample.setImageFile(storedFile);
-            sample.setDescription(sampleDescription);
+            sample.setSampleName(item.getSampleName());
+            sample.setImageFile(stored);
+            sample.setDescription(item.getDescription());
             sample.setDisplayOrder(i);
             sample.setCollection(savedCollection);
-
             ComparisonSample savedSample = sampleService.save(sample);
             savedSamples.add(savedSample);
-            //log.info("Created sample: {} with image: {}", sampleName, imagePath);
+            log.info("Created sample: {} with file id: {}", item.getSampleName(), stored.getId());
         }
         savedCollection.setSamples(savedSamples);
         return toResponseDTO(savedCollection);
     }
     @Transactional
     public void deleteCollection(Long collectionId) throws IOException {
-        ComparisonCollection collection = repository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Collection not found"));
+        if (!repository.existsById(collectionId))
+            throw new IllegalArgumentException("Collection not found");
+        List<StoredFile> files = sampleService.findFilesByCollection(collectionId);
 
-        // Delete all samples (images will be deleted too)
-        List<ComparisonSample> samples = sampleService.findByCollectionId(collectionId);
-
-        for (ComparisonSample sample : samples) {
-            // Delete image file
-            String imagePath = sample.getImagePath();
-            StoredFile stored = sample.getImageFile();
-            if (stored !=  null)
-                storedFileService.delete(stored);
-            if (imagePath != null && (stored == null || !imagePath.equals(stored.getStorageKey()))) {
-                fileStorageService.deleteFile(imagePath);
-            }
+        sampleService.deleteAllByCollectionId(collectionId);
+        repository.deleteById(collectionId);
+        for (StoredFile f: files){
+            if (sampleService.existsByImageFileId(f.getId())) continue;
+            storedFileService.delete(f);
         }
-
-        // Delete samples and collection
-        sampleService.deleteByCollectionId(collectionId);
-        repository.delete(collection);
-
         log.info("Deleted collection and all samples: {}", collectionId);
     }
     public Optional<ComparisonCollection> findById(Long collectionId) {
@@ -168,7 +136,6 @@ public class ComparisonCollectionService {
                 .map(sample -> SampleDTO.builder()
                         .id(sample.getId())
                         .sampleName(sample.getSampleName())
-                        .imagePath(sample.getImagePath())
                         .file(fileUrlService.toDto(sample.getImageFile()))
                         .description(sample.getDescription())
                         .displayOrder(sample.getDisplayOrder())

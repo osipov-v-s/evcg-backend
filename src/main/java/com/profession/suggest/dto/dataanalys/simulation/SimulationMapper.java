@@ -27,7 +27,6 @@ public class SimulationMapper {
         simulation.setSimulationType(simulationType);
         simulation.setProfession(profession);
         simulation.setPupil(pupil);
-        simulation.setFilePath(filepath);
         return simulation;
     }
     public SimulationDTO toDTO(Simulation simulation, String email) {
@@ -51,7 +50,6 @@ public class SimulationMapper {
         dto.setDescription(simulation.getDescription());
 
         dto.setFile(fileUrlService.toDto(simulation.getFile()));
-        dto.setFilePath(simulation.getFilePath());
         dto.setCreatedAt(simulation.getCreatedAt());
         return dto;
     }

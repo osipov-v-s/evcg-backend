@@ -3,15 +3,13 @@ package com.profession.suggest.controllers.comparison;
 import com.profession.suggest.configuration.security.annotation.HasRole;
 import com.profession.suggest.database.entities.auth.Account;
 import com.profession.suggest.database.entities.auth.role.RoleEnum;
-import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonCollection;
-import com.profession.suggest.database.entities.dataanalys.comparison.ComparisonSession;
 import com.profession.suggest.database.services.auth.AccountService;
 import com.profession.suggest.database.services.dataanalys.comparison.ComparisonCollectionService;
 import com.profession.suggest.database.services.dataanalys.comparison.ComparisonSessionService;
 import com.profession.suggest.dto.dataanalys.comparison.CollectionResponseDTO;
-import com.profession.suggest.dto.dataanalys.comparison.SessionData;
+import com.profession.suggest.dto.dataanalys.comparison.CreateCollectionRequest;
+import com.profession.suggest.dto.dataanalys.comparison.SessionFromFileRequest;
 import com.profession.suggest.dto.dataanalys.comparison.SessionResponseDTO;
-import com.profession.suggest.dto.dataanalys.comparison.SessionSubmitRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -35,6 +33,26 @@ public class ComparisonController {
     private final ComparisonSessionService sessionService;
     private final AccountService accountService;
 
+    @PostMapping(value = "/sessions/json", consumes = "application/json;charset=UTF-8")
+    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
+    public ResponseEntity<?> submitSessionFromFile(
+            @RequestAttribute("accountId") Long accountId,
+            @RequestBody SessionFromFileRequest req) {
+        try {
+            SessionResponseDTO session = sessionService.submitSessionFromFileId(accountId, req.getFileId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(session);
+        } catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error submitting session: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to submit session");
+        }
+    }
+
     /**
      * Client gets the most recent active collection to start the test
      * GET /api/comparison/collections/active
@@ -54,32 +72,7 @@ public class ComparisonController {
                     .body("Failed to get active collection");
         }
     }
-    /**
-     * Client submits completed test session
-     * POST /api/comparison/sessions
-     */
-    @HasRole({RoleEnum.PUPIL, RoleEnum.SPECIALIST})
-    @PostMapping("/sessions")
-    public ResponseEntity<?> submitSession(
-            @RequestAttribute("accountId") Long accountId,
-            @RequestParam MultipartFile dataFile) {
-        try {
-            Account account = accountService.getAccountById(accountId);
-            SessionResponseDTO session = sessionService.submitSession(account, dataFile);
-            return ResponseEntity.status(HttpStatus.CREATED).body(session);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(e.getMessage());
-        } catch (IOException e) {
-            log.error("File save error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to save session file");
-        } catch (Exception e) {
-            log.error("Error submitting session: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to submit session");
-        }
-    }
+
     /**
      * Client gets their sessions (paginated)
      * GET /api/comparison/sessions
@@ -176,27 +169,14 @@ public class ComparisonController {
      * POST /api/comparison/collections
      */
     @HasRole(RoleEnum.ADMIN)
-    @PostMapping("/collections")
-    public ResponseEntity<?> createCollection(
-            @RequestParam String name,
-            @RequestParam(required = false) String description,
-            @RequestParam("images") List<MultipartFile> images,
-            @RequestParam("sampleNames") List<String> sampleNames,
-            @RequestParam(required = false) List<String> sampleDescriptions,
-            @RequestParam(required = false) String appVersion,
-            @RequestParam(required = false) String dataSchemaVersion) {
+    @PostMapping(value = "/collections", consumes = "application/json;charset=UTF-8")
+    public ResponseEntity<?> createCollection(@RequestBody CreateCollectionRequest req) {
         try {
-            CollectionResponseDTO collection = collectionService.createCollectionWithSamples(
-                    name, description, images, sampleNames, sampleDescriptions,
-                    appVersion, dataSchemaVersion);
+            CollectionResponseDTO collection = collectionService.createCollectionWithSamples(req);
             return ResponseEntity.status(HttpStatus.CREATED).body(collection);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(e.getMessage());
-        } catch (IOException e) {
-            log.error("File save error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to save images");
         } catch (Exception e) {
             log.error("Error creating collection: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
