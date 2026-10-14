@@ -21,8 +21,6 @@ public class Simulation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(name = "file_path")
-    private String filePath;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id")
     private StoredFile file;

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -41,6 +42,11 @@ public class JsonParserService {
      */
     public <T> T parseJsonToClass(String jsonContent, Class<T> targetClass) throws IOException {
         return objectMapper.readValue(jsonContent, targetClass);
+    }
+    public <T> T parseJsonToClass(org.springframework.core.io.Resource resource, Class<T> clazz) throws java.io.IOException{
+        try (InputStream is = resource.getInputStream()) {
+            return objectMapper.readValue(is, clazz);
+        }
     }
 
     /**

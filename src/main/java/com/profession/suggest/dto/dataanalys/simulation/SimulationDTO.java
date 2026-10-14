@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class SimulationDTO {
     private Long id;
-    private String filePath;
     private StoredFileDTO file;
     private LocalDateTime startSimulation;
     private LocalDateTime endSimulation;

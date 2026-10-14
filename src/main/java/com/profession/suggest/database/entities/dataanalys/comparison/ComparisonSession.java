@@ -24,9 +24,6 @@ public class ComparisonSession {
 
     @Column(name = "client_session_id", nullable = false, unique = true)
     private String clientSessionId;
-
-    @Column(name = "file_path", nullable = false)
-    private String filePath;  // Path to the uploaded JSON file
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id")
     private StoredFile file;

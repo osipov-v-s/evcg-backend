@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 public class SampleDTO {
     private Long id;
     private String sampleName;
-    private String imagePath;
     private StoredFileDTO file;
     private String description;
     private Integer displayOrder;

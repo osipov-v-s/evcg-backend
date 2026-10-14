@@ -17,7 +17,6 @@ public class SessionResponseDTO {
     private String clientSessionId;
     private Long collectionId;
     private String collectionName;
-    private String filePath;
     private StoredFileDTO file;
     private Integer recordCount;
     private LocalDateTime startedAt;
