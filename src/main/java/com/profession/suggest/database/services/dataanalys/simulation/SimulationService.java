@@ -133,9 +133,11 @@ public class SimulationService {
                                           String simulationType, String profession, String scenario,
                                           String simulationDataSource, Pageable pageable) {
         Specification<Simulation> spec = (root, query, cb) -> cb.conjunction();
-        if (email != null && !email.isEmpty())
+        if (email != null && !email.isEmpty()) {
+            String emailPattern = "%" + email.toLowerCase() + "%";
             spec = spec.and(((root, query, cb) ->
-                    cb.equal(root.get("pupil").get("account").get("email"), email)));
+                    cb.like(root.get("pupil").get("account").get("email"), emailPattern)));
+        }
         if (startSimulation != null)
             spec = spec.and((root, query, cb) ->
                     cb.greaterThanOrEqualTo(root.get("startSimulation"), startSimulation));
