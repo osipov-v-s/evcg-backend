@@ -84,7 +84,7 @@ public class SimulationController {
         return ResponseEntity.ok(simulationTypeService.getSimulationTypes());
     }
     //@HasRole(RoleEnum.ADMIN)
-    @PostMapping("/types")
+    @PostMapping("/create-type")
     public ResponseEntity<SimulationTypeDTO> createSimulationType(@RequestBody SimulationTypeDTO simulationTypeDTO) {
         return ResponseEntity.ok(simulationTypeService.createSimulation(simulationTypeDTO));
     }
