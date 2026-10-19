@@ -231,4 +231,21 @@ public class ComparisonController {
                     .body("Failed to get sessions");
         }
     }
+    /**
+     * Admin get specific active collection by ID (if active is true)
+     * GET /api/comparison/collections/{collectionId}
+     */
+    @HasRole(RoleEnum.ADMIN)
+    @GetMapping("collections/{collectionId}")
+    public  ResponseEntity<?> getCollectionById(@PathVariable Long collectionId) {
+        try {
+            return ResponseEntity.ok(collectionService.getCollectionById(collectionId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(e.getMessage());
+        }
+    }
 }
