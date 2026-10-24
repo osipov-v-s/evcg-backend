@@ -20,10 +20,8 @@ import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import javax.security.auth.login.AccountNotFoundException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -167,6 +165,20 @@ public class VRTestService {
                         .forEach(vrTestAnswerService::delete));
         repository.deleteAll(tests);
         log.info("Deleted {} tests for account {} and profession {}", tests.size(), accountId, professionId);
+    }
+
+    public List<VRTestDTO> getCompletedVRTestsByDateRange(String type, LocalDateTime startDate, LocalDateTime endDate) {
+        List<VRTest> vrTests;
+        if (Objects.equals(type.toLowerCase().trim(), "pupil"))
+            vrTests = repository.findByPupilAndDateRange(startDate, endDate);
+        else if (Objects.equals(type.toLowerCase().trim(), "specialist"))
+            vrTests = repository.findBySpecialistAndDateRange(startDate, endDate);
+        else
+            vrTests = repository.findByDateRange(startDate, endDate);
+
+        return vrTests.stream()
+                .map(mapper::toDTO)
+                .collect(Collectors.toList());
     }
 
     public void prepareTestDto(VRTestDTO dto, Account account) {

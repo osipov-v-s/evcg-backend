@@ -20,6 +20,7 @@ import javax.security.auth.login.AccountNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -114,6 +115,21 @@ public class VRTestController {
                 Paths.get(publicFolder).resolve("vr_tests"),
                 Set.of("before.json", "after.json")
         ));
+    }
+    @HasRole(RoleEnum.ADMIN)
+    @GetMapping("/completed-tests")
+    public ResponseEntity<?> getCompletedVRTestsBetweenDates(
+            @RequestParam("type") String type,
+            @RequestParam("startDate") LocalDateTime startDate,
+            @RequestParam("endDate") LocalDateTime endDate
+    ) {
+        try {
+            return ResponseEntity.ok(vrTestService.getCompletedVRTestsByDateRange(type, startDate, endDate));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(403).body("Check parameters");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
 }

@@ -13,8 +13,10 @@ import java.util.List;
 @NoArgsConstructor
 public class VRTestDTO {
     private Long id;
+    private String accountEmail;
     private Double score;
     private Long professionId;
+    private String professionName;
     private Long pupilId;
     private String typeName;
     private Long specialistId;

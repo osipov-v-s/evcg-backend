@@ -41,4 +41,18 @@ public interface VRTestRepository extends JpaRepository<VRTest, Long> {
     // ? Query for specialist tests
     @Query("SELECT v FROM VRTest v WHERE v.specialist.account.id = :accountId")
     List<VRTest> findBySpecialistAccountId(@Param("accountId") Long accountId);
+    @Query("select distinct vrt from VRTest vrt " +
+            "inner join vrt.pupil p " +
+            "where vrt.createdAt >= :startDate and vrt.createdAt <= :endDate")
+    List<VRTest> findByPupilAndDateRange(@Param("startDate") LocalDateTime startDate,
+                                         @Param("endDate") LocalDateTime endDate);
+    @Query("select distinct vrt from VRTest vrt " +
+            "inner join vrt.specialist s " +
+            "where vrt.createdAt >= :startDate and vrt.createdAt <= :endDate")
+    List<VRTest> findBySpecialistAndDateRange(@Param("startDate") LocalDateTime startDate,
+                                              @Param("endDate") LocalDateTime endDate);
+    @Query("select distinct vrt from VRTest vrt " +
+            "where vrt.createdAt >= :startDate and vrt.createdAt <= :endDate")
+    List<VRTest> findByDateRange(@Param("startDate") LocalDateTime startDate,
+                                 @Param("endDate") LocalDateTime endDate);
 }

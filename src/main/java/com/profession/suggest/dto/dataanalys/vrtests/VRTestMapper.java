@@ -16,10 +16,15 @@ public class VRTestMapper {
         dto.setCompletionTimeSeconds(test.getCompletionTimeSeconds());
         dto.setTypeName(test.getType().getName());
         dto.setProfessionId(test.getProfession().getId());
-        if (test.getPupil() != null)
+        dto.setProfessionName(test.getProfession().getName());
+        if (test.getPupil() != null) {
             dto.setPupilId(test.getPupil().getId());
-        else if (test.getSpecialist() != null)
+            dto.setAccountEmail(test.getPupil().getAccount().getEmail());
+        }
+        else if (test.getSpecialist() != null) {
             dto.setSpecialistId(test.getSpecialist().getId());
+            dto.setAccountEmail(test.getSpecialist().getAccount().getEmail());
+        }
         List<AnswerDTO> answersDTOs = new ArrayList<>();
         for(VRTestAnswer answer: test.getAnswers()) {
             AnswerDTO answerDTO = new AnswerDTO();
