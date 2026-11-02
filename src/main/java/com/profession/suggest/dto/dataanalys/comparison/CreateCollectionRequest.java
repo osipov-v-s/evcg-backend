@@ -16,5 +16,7 @@ public class CreateCollectionRequest {
         private Long fileId;
         private String sampleName;
         private String description;
+        private String type;
+        private Integer level;
     }
 }

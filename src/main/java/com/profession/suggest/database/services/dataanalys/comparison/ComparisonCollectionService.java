@@ -103,6 +103,8 @@ public class ComparisonCollectionService {
             sample.setDescription(item.getDescription());
             sample.setDisplayOrder(i);
             sample.setCollection(savedCollection);
+            sample.setLevel(item.getLevel());
+            sample.setType(item.getType());
             ComparisonSample savedSample = sampleService.save(sample);
             savedSamples.add(savedSample);
             log.info("Created sample: {} with file id: {}", item.getSampleName(), stored.getId());
@@ -139,6 +141,8 @@ public class ComparisonCollectionService {
                         .file(fileUrlService.toDto(sample.getImageFile()))
                         .description(sample.getDescription())
                         .displayOrder(sample.getDisplayOrder())
+                        .level(sample.getLevel())
+                        .type(sample.getType())
                         .build())
                 .collect(Collectors.toList());
 

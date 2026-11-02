@@ -32,6 +32,10 @@ public class ComparisonSample {
 
     @Column(name = "display_order")
     private Integer displayOrder = 0;
+    @Column(name = "type")
+    private String type;
+    @Column(name = "level")
+    private Integer level;
 
     @Column(name = "created_at")
     @CreationTimestamp

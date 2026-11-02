@@ -16,4 +16,6 @@ public class SampleDTO {
     private StoredFileDTO file;
     private String description;
     private Integer displayOrder;
+    private Integer level;
+    private String type;
 }
