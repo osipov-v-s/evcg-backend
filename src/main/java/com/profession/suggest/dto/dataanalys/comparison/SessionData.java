@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class SessionData {
     private String clientSessionId;
     private Long collectionId;
+    private Long trackingFileId;
     private String appVersion;
     private String dataSchemaVersion;
     private String dataSourceMode;
