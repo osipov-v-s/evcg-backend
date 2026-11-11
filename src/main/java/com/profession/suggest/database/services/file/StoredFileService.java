@@ -81,6 +81,7 @@ public class StoredFileService {
             case SIMULATION -> "simulations";
             case COMPARISON_SESSION -> "comparison/sessions";
             case COMPARISON_SAMPLE_IMAGE -> "comparison/collections";
+            case TRACKING_DATA -> "comparison/tracking-data";
             case VR_TEST_ASSET -> "vr_tests_asset";
         };
     }

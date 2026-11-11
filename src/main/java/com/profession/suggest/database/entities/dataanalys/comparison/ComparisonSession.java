@@ -27,6 +27,9 @@ public class ComparisonSession {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id")
     private StoredFile file;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tracking_file_id")//private Long trackingFileId;
+    private StoredFile trackingFile;
     // Metadata from the JSON
     @Column(name = "app_version")
     private String appVersion;

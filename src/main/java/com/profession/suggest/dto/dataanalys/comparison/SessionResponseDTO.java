@@ -18,6 +18,7 @@ public class SessionResponseDTO {
     private Long collectionId;
     private String collectionName;
     private StoredFileDTO file;
+    private StoredFileDTO trackingFile;
     private Integer recordCount;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

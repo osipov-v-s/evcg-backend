@@ -46,6 +46,7 @@ public class ComparisonSessionService {
             throw new IllegalArgumentException("fileId is required");
         Account account = accountService.getAccountById(accountId);
         StoredFile stored = storedFileService.getStoredFile(fileId);
+        StoredFile trackingFile = null; //id stored in json
         if (stored.getKind() != FileKind.COMPARISON_SESSION)
             throw new IllegalArgumentException("fileId must references a COMPARISON_SESSION file");
         boolean isAdmin = account.getRoles().stream()
@@ -56,9 +57,16 @@ public class ComparisonSessionService {
         SessionData sessionData = jsonParserService.parseJsonToClass(
                 storedFileService.open(stored), SessionData.class
         );
-        return persistSession(account, sessionData, stored);
+        if (sessionData.getTrackingFileId() != null) {
+            trackingFile = storedFileService.getStoredFile(sessionData.getTrackingFileId());
+            if (trackingFile.getKind() != FileKind.TRACKING_DATA)
+                throw new IllegalArgumentException("trackingFile must be reference at TRACKING_DATA file");
+            if (!isAdmin && !Objects.equals(trackingFile.getOwnerAccountId(), account.getId()))
+                throw new SecurityException("trackingFileId does not belong to requester");
+        }
+        return persistSession(account, sessionData, stored, trackingFile);
     }
-    private SessionResponseDTO persistSession(Account account, SessionData sessionData, StoredFile stored) {
+    private SessionResponseDTO persistSession(Account account, SessionData sessionData, StoredFile stored, StoredFile trackingFile) {
         if (sessionData.getCollectionId() == null)
             throw new IllegalArgumentException("collectionId is required");
         if (sessionData.getClientSessionId() != null && repository.findByClientSessionId(sessionData.getClientSessionId()).isPresent())
@@ -70,6 +78,7 @@ public class ComparisonSessionService {
         ComparisonSession session = new ComparisonSession();
         session.setClientSessionId(sessionData.getClientSessionId());
         session.setFile(stored);
+        session.setTrackingFile(trackingFile);
         session.setAppVersion(sessionData.getAppVersion());
         session.setDataSchemaVersion(sessionData.getDataSchemaVersion());
         session.setDataSourceMode(sessionData.getDataSourceMode());
@@ -129,9 +138,11 @@ public class ComparisonSessionService {
     public void deleteSession(Long sessionId, Account account) throws IOException {
         ComparisonSession session = getSessionById(sessionId, account);
         StoredFile stored = session.getFile();
+        StoredFile trackingFile = session.getTrackingFile();
         if (stored != null)
-            storedFileService.delete(session.getFile());
-
+            storedFileService.delete(stored);
+        if (trackingFile != null)
+            storedFileService.delete(trackingFile);
         repository.delete(session);
     }
 
@@ -155,6 +166,7 @@ public class ComparisonSessionService {
                 .collectionId(session.getCollection().getId())
                 .collectionName(session.getCollection().getName())
                 .file(fileUrlService.toDto(session.getFile()))
+                .trackingFile(fileUrlService.toDto(session.getTrackingFile()))
                 .recordCount(session.getRecordCount())
                 .startedAt(session.getStartedAt())
                 .completedAt(session.getCompletedAt())
